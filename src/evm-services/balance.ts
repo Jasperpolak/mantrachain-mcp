@@ -62,12 +62,12 @@ const erc1155Abi = [
 ] as const;
 
 /**
- * Get the OM balance for an address
- * @param address OM 0x address
+ * Get the native MANTRA balance for an address
+ * @param address 0x address
  * @param network Network name or chain ID
- * @returns Balance in wei and om
+ * @returns Balance in wei and MANTRA
  */
-export async function getBalance(address: string, network = DEFAULT_NETWORK): Promise<{ wei: bigint; om: string }> {
+export async function getBalance(address: string, network = DEFAULT_NETWORK): Promise<{ wei: bigint; mantra: string }> {
 	const validatedAddress = services.helpers.validateAddress(address);
 
 	const client = getPublicClient(network);
@@ -75,7 +75,7 @@ export async function getBalance(address: string, network = DEFAULT_NETWORK): Pr
 
 	return {
 		wei: balance,
-		om: formatEther(balance)
+		mantra: formatEther(balance)
 	};
 }
 
