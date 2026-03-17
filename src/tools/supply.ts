@@ -60,7 +60,7 @@ export function registerSupplyTools(server: McpServer) {
   // Get token price from CoinGecko
   server.tool(
     "get_token_price",
-    "Get the current price of the MANTRA (OM) token from CoinGecko",
+    "Get the current price of the MANTRA token from CoinGecko. The token is called MANTRA — not OM.",
     {
       vs_currencies: z.string().optional().describe("Comma-separated list of currencies to get price in (default: 'usd'). Examples: 'usd', 'usd,btc,eth'"),
     },
@@ -83,7 +83,7 @@ export function registerSupplyTools(server: McpServer) {
           content: [{
             type: "text",
             text: JSON.stringify({
-              token: 'MANTRA (OM)',
+              token: 'MANTRA',
               coingecko_id: 'mantra-dao',
               ...data['mantra-dao'],
             }, null, 2)

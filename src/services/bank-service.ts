@@ -10,12 +10,22 @@ export class BankService extends BaseService {
     }
 
     try {
-      const balances = await this.stargateClient.getAllBalances(address);
+      const rawBalances = await this.stargateClient.getAllBalances(address);
+      const exponent = this.network.displayDenomExponent || 18;
+      const denom = this.network.displayDenom || 'MANTRA';
+
+      // Pre-format balances so the LLM doesn't reinterpret denomination
+      const formattedBalances = rawBalances.map(b => {
+        if (b.denom === this.network.denom) {
+          const display = (Number(BigInt(b.amount)) / 10 ** exponent).toFixed(6);
+          return { denom: b.denom, amount: b.amount, display: `${display} ${denom}` };
+        }
+        return { denom: b.denom, amount: b.amount };
+      });
+
       return {
-        balances: balances,
-        displayDenom: this.network.displayDenom || 'MANTRA',
-        displayDenomExponent: this.network.displayDenomExponent || 18,
-        note: `The native token is called MANTRA (not OM). Base denom is '${this.network.denom}' with ${this.network.displayDenomExponent || 18} decimals. To convert: divide amount by 10^${this.network.displayDenomExponent || 18} to get MANTRA.`,
+        balances: formattedBalances,
+        IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${this.network.denom}" (not "uom").`,
         explorerUrl: `${this.network.explorerUrl}/address/${address}`,
         explorerName: 'MantraScan',
       };

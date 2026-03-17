@@ -36,8 +36,24 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
     async ({ address, networkName }) => {
       await mantraClient.initialize(networkName);
       const delegations = await mantraClient.getDelegations(address);
+      const network = networks[networkName];
+      const exponent = network.displayDenomExponent || 18;
+      const denom = network.displayDenom || 'MANTRA';
+
+      const formatted = (delegations || []).map((d: any) => {
+        const rawAmount = d.balance?.amount || '0';
+        const display = (Number(BigInt(rawAmount)) / 10 ** exponent).toFixed(6);
+        return {
+          ...convertBigIntToString(d),
+          displayAmount: `${display} ${denom}`,
+        };
+      });
+
       return {
-        content: [{type: "text", text: JSON.stringify(convertBigIntToString(delegations))}],
+        content: [{type: "text", text: JSON.stringify({
+          delegations: formatted,
+          IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${network.denom}" (not "uom").`,
+        })}],
       };
     }
   );
@@ -55,8 +71,27 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
     async ({ address, networkName }) => {
       await mantraClient.initialize(networkName);
       const rewards = await mantraClient.getAvailableRewards(address);
+      const network = networks[networkName];
+      const exponent = network.displayDenomExponent || 18;
+      const denom = network.displayDenom || 'MANTRA';
+
+      const raw = convertBigIntToString(rewards);
+
+      // Format total rewards
+      const formattedTotals = (raw.total || []).map((t: any) => {
+        if (t.denom === network.denom) {
+          const display = (Number(t.amount) / 10 ** exponent).toFixed(6);
+          return { ...t, display: `${display} ${denom}` };
+        }
+        return t;
+      });
+
       return {
-        content: [{type: "text", text: JSON.stringify(convertBigIntToString(rewards))}],
+        content: [{type: "text", text: JSON.stringify({
+          ...raw,
+          total: formattedTotals,
+          IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${network.denom}" (not "uom").`,
+        })}],
       };
     }
   );
