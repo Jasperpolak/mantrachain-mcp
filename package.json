@@ -1,0 +1,62 @@
+{
+  "name": "mantrachain-mcp",
+  "version": "2.0.0",
+  "description": "Read-only Model Context Protocol server for MANTRA Chain (Cosmos SDK L1) with EVM support",
+  "main": "build/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "start-http": "node build/index.js --http",
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "dev-http": "node --loader ts-node/esm src/index.ts --http",
+    "debug": "npx @modelcontextprotocol/inspector -- node build/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "bin": {
+    "mantrachain-mcp": "./build/index.js"
+  },
+  "files": [
+    "build",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@cosmjs/cosmwasm-stargate": "^0.33.1",
+    "@cosmjs/crypto": "0.33.1",
+    "@cosmjs/encoding": "0.33.1",
+    "@cosmjs/stargate": "^0.33.1",
+    "@cosmjs/tendermint-rpc": "0.33.1",
+    "@modelcontextprotocol/sdk": "^1.10.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "5.1.0",
+    "viem": "^2.30.5",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "0.7.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.13.10",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.8.2"
+  },
+  "keywords": [
+    "MANTRA",
+    "mantrachain",
+    "cosmos-sdk",
+    "model-context-protocol",
+    "mcp",
+    "read-only",
+    "blockchain"
+  ],
+  "author": "MANTRA",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
