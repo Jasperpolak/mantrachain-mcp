@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { fromBech32, toBech32, toHex, fromHex } from '@cosmjs/encoding';
+import { getAddress } from 'viem';
 
 export function registerAddressTools(server: McpServer) {
   server.tool(
@@ -17,14 +18,14 @@ export function registerAddressTools(server: McpServer) {
         if (address.startsWith('mantra1')) {
           // bech32 → 0x
           const { data } = fromBech32(address);
-          evmAddress = '0x' + toHex(data);
+          evmAddress = getAddress('0x' + toHex(data)); // EIP-55 checksummed
           bech32Address = address;
         } else if (address.startsWith('0x') || address.startsWith('0X')) {
           // 0x → bech32
-          const hexStr = address.slice(2);
+          const hexStr = address.slice(2).toLowerCase();
           const data = fromHex(hexStr);
           bech32Address = toBech32('mantra', data);
-          evmAddress = '0x' + hexStr.toLowerCase();
+          evmAddress = getAddress('0x' + hexStr); // EIP-55 checksummed
         } else {
           throw new Error("Address must start with 'mantra1' (bech32) or '0x' (EVM)");
         }

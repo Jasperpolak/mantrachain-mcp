@@ -18,7 +18,10 @@ export function registerDexTools(server: McpServer, mantraClient: MantraClient) 
       await mantraClient.initialize(networkName);
       const pools = await mantraClient.getPools();
       return {
-        content: [{type: "text", text: JSON.stringify(pools)}],
+        content: [{type: "text", text: JSON.stringify({
+          note: "On-chain DEX pool data uses 'uom' as the denom string for MANTRA's native token. 'uom' = 'amantra' = MANTRA native token. They are the same asset.",
+          pools
+        })}],
       };
     }
   );
@@ -38,7 +41,10 @@ export function registerDexTools(server: McpServer, mantraClient: MantraClient) 
       await mantraClient.initialize(networkName);
       const routes = await mantraClient.findSwapRoutes(tokenInDenom, tokenOutDenom);
       return {
-        content: [{type: "text", text: JSON.stringify(routes)}],
+        content: [{type: "text", text: JSON.stringify({
+          note: "On-chain DEX uses 'uom' as the denom string for MANTRA's native token. 'uom' = 'amantra' = MANTRA native token. They are the same asset.",
+          routes
+        })}],
       };
     }
   );
@@ -65,7 +71,10 @@ export function registerDexTools(server: McpServer, mantraClient: MantraClient) 
         tokenOutDenom
       });
       return {
-        content: [{type: "text", text: JSON.stringify(convertBigIntToString(simulation))}],
+        content: [{type: "text", text: JSON.stringify({
+          note: "On-chain DEX uses 'uom' as the denom string for MANTRA's native token. 'uom' = 'amantra' = MANTRA native token. They are the same asset.",
+          simulation: convertBigIntToString(simulation)
+        })}],
       };
     }
   );
