@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as services from '../evm-services/index.js';
 import { MantraClient } from '../mantra-client.js';
 import { networks } from '../config.js';
+import { networkNameSchema, formatError } from './schemas.js';
 
 export function registerNetworkTools(server: McpServer, mantraClient: MantraClient) {
   // Get Cosmos block info
@@ -10,9 +11,7 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
     "get-block-info",
     "Get block information from MANTRA Chain CometBFT RPC",
     {
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
       height: z.number().optional().describe("Optional block height to query, defaults to latest block"),
     },
     async ({ networkName, height }) => {
@@ -29,26 +28,18 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
     'get-block-info-evm',
     'Get block information from MANTRA Chain EVM RPC',
     {
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
       height: z.number().optional().describe("Optional block height to query, defaults to latest block"),
     },
     async ({ height, networkName }) => {
       try {
         const block = await services.getBlockByNumber(height, networkName);
         return {
-          content: [{
-            type: 'text',
-            text: services.helpers.formatJson(block)
-          }]
+          content: [{type: 'text', text: services.helpers.formatJson(block)}]
         };
       } catch (error) {
         return {
-          content: [{
-            type: 'text',
-            text: `Error fetching block ${height}: ${error instanceof Error ? error.message : String(error)}`
-          }],
+          content: [{type: 'text', text: `Error fetching block ${height}: ${formatError(error)}`}],
           isError: true
         };
       }
@@ -60,9 +51,7 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
     "query-network",
     "Execute a generic gRPC Gateway query against MANTRA Chain APIs. Check available endpoints by reading `openapi://{networkName}` first.",
     {
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
       path: z.string().describe("API endpoint path from the OpenAPI spec, e.g., '/cosmos/bank/v1beta1/balances/{address}'"),
       method: z.enum(["GET", "POST", "PUT", "DELETE"]).describe("HTTP method to use for the request"),
       pathParams: z.record(z.string()).optional().describe("Path parameters to substitute in the URL path"),
@@ -73,17 +62,13 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
       try {
         await mantraClient.initialize(networkName);
 
-        let url = networks[networkName].apiEndpoint;
-
-        if (url.endsWith('/')) {
-          url = url.slice(0, -1);
-        }
+        let url = networks[networkName].apiEndpoint.replace(/\/+$/, '');
 
         if (pathParams) {
           let substitutedPath = path;
-          Object.entries(pathParams).forEach(([key, value]) => {
+          for (const [key, value] of Object.entries(pathParams)) {
             substitutedPath = substitutedPath.replace(`{${key}}`, encodeURIComponent(String(value)));
-          });
+          }
           url += substitutedPath;
         } else {
           url += path;
@@ -91,28 +76,24 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
 
         if (queryParams && Object.keys(queryParams).length > 0) {
           const params = new URLSearchParams();
-          Object.entries(queryParams).forEach(([key, value]) => {
+          for (const [key, value] of Object.entries(queryParams)) {
             params.append(key, String(value));
-          });
+          }
           url += `?${params.toString()}`;
         }
 
         const response = await fetch(url, {
           method,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           body: body ? JSON.stringify(body) : undefined,
         });
 
         const data = await response.json();
-
         return {
           content: [{type: "text", text: JSON.stringify(data)}],
         };
       } catch (error) {
-        throw new Error(`Failed to execute network query: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Failed to execute network query: ${formatError(error)}`);
       }
     }
   );

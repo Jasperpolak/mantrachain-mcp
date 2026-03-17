@@ -3,74 +3,7 @@ import { getPublicClient } from './clients.js';
 import * as services from './index.js';
 import { readContract } from './contracts.js';
 import { DEFAULT_NETWORK } from '../config.js';
-
-// Standard ERC20 ABI (minimal for reading)
-const erc20Abi = [
-	{
-		inputs: [],
-		name: 'name',
-		outputs: [{ type: 'string' }],
-		stateMutability: 'view',
-		type: 'function'
-	},
-	{
-		inputs: [],
-		name: 'symbol',
-		outputs: [{ type: 'string' }],
-		stateMutability: 'view',
-		type: 'function'
-	},
-	{
-		inputs: [],
-		name: 'decimals',
-		outputs: [{ type: 'uint8' }],
-		stateMutability: 'view',
-		type: 'function'
-	},
-	{
-		inputs: [],
-		name: 'totalSupply',
-		outputs: [{ type: 'uint256' }],
-		stateMutability: 'view',
-		type: 'function'
-	}
-] as const;
-
-// Standard ERC721 ABI (minimal for reading)
-const erc721Abi = [
-	{
-		inputs: [],
-		name: 'name',
-		outputs: [{ type: 'string' }],
-		stateMutability: 'view',
-		type: 'function'
-	},
-	{
-		inputs: [],
-		name: 'symbol',
-		outputs: [{ type: 'string' }],
-		stateMutability: 'view',
-		type: 'function'
-	},
-	{
-		inputs: [{ type: 'uint256', name: 'tokenId' }],
-		name: 'tokenURI',
-		outputs: [{ type: 'string' }],
-		stateMutability: 'view',
-		type: 'function'
-	}
-] as const;
-
-// Standard ERC1155 ABI (minimal for reading)
-const erc1155Abi = [
-	{
-		inputs: [{ type: 'uint256', name: 'id' }],
-		name: 'uri',
-		outputs: [{ type: 'string' }],
-		stateMutability: 'view',
-		type: 'function'
-	}
-] as const;
+import { erc20Abi, erc721Abi, erc1155Abi } from './abis.js';
 
 /**
  * Get ERC20 token information
@@ -155,11 +88,6 @@ export async function getERC1155TokenURI(tokenAddress: Address, tokenId: bigint,
 
 /**
  * Check if an address owns a specific NFT
- * @param tokenAddress NFT contract address
- * @param ownerAddress Owner address
- * @param tokenId Token ID to check
- * @param network Network name or chain ID
- * @returns True if the address owns the NFT
  */
 export async function isNFTOwner(tokenAddress: string, ownerAddress: string, tokenId: bigint, network = DEFAULT_NETWORK): Promise<boolean> {
 	const validatedTokenAddress = services.helpers.validateAddress(tokenAddress);

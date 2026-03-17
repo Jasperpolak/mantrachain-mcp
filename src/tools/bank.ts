@@ -5,6 +5,7 @@ import { MantraClient } from '../mantra-client.js';
 import * as services from '../evm-services/index.js';
 import { networks } from '../config.js';
 import { convertBigIntToString } from '../utils.js';
+import { networkNameSchema, formatError } from './schemas.js';
 
 export function registerBankTools(server: McpServer, mantraClient: MantraClient) {
   // Get Cosmos balance
@@ -13,9 +14,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
     "Get the Cosmos balance of an address on MANTRA Chain. The native token is called MANTRA (not OM). The base denomination is 'amantra' with 18 decimals. The block explorer is MantraScan (mantrascan.io).",
     {
       address: z.string().describe("The bech32 address to get balance for (e.g., 'mantra1...')"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ address, networkName }) => {
       await mantraClient.initialize(networkName);
@@ -32,9 +31,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
     'Get the native token balance (MANTRA) for an EVM address',
     {
       address: z.string().describe("The EVM wallet address (e.g., '0x1234...')"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ address, networkName }) => {
       try {
@@ -44,10 +41,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
         };
       } catch (error) {
         return {
-          content: [{
-            type: 'text',
-            text: `Error fetching balance: ${error instanceof Error ? error.message : String(error)}`
-          }],
+          content: [{type: 'text', text: `Error fetching balance: ${formatError(error)}`}],
           isError: true
         };
       }
@@ -61,9 +55,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
     {
       tokenAddress: z.string().describe("The contract address of the ERC20 token (e.g., '0x3894...')"),
       ownerAddress: z.string().describe("The wallet address to check the balance for (e.g., '0x1234...')"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ tokenAddress, ownerAddress, networkName }) => {
       try {
@@ -84,10 +76,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
         };
       } catch (error) {
         return {
-          content: [{
-            type: 'text',
-            text: `Error fetching token balance: ${error instanceof Error ? error.message : String(error)}`
-          }],
+          content: [{type: 'text', text: `Error fetching token balance: ${formatError(error)}`}],
           isError: true
         };
       }
@@ -101,9 +90,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
     {
       tokenAddress: z.string().describe("The contract address of the NFT collection"),
       ownerAddress: z.string().describe("The wallet address to check the NFT balance for"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ tokenAddress, ownerAddress, networkName }) => {
       try {
@@ -121,10 +108,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
         };
       } catch (error) {
         return {
-          content: [{
-            type: 'text',
-            text: `Error fetching NFT balance: ${error instanceof Error ? error.message : String(error)}`
-          }],
+          content: [{type: 'text', text: `Error fetching NFT balance: ${formatError(error)}`}],
           isError: true
         };
       }
@@ -139,9 +123,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
       tokenAddress: z.string().describe("The contract address of the ERC1155 token collection"),
       tokenId: z.string().describe("The ID of the specific token to check the balance for"),
       ownerAddress: z.string().describe("The wallet address to check the token balance for"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ tokenAddress, tokenId, ownerAddress, networkName }) => {
       try {
@@ -160,10 +142,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
         };
       } catch (error) {
         return {
-          content: [{
-            type: 'text',
-            text: `Error fetching ERC1155 token balance: ${error instanceof Error ? error.message : String(error)}`
-          }],
+          content: [{type: 'text', text: `Error fetching ERC1155 token balance: ${formatError(error)}`}],
           isError: true
         };
       }

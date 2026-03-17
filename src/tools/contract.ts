@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Address } from 'viem';
 import * as services from '../evm-services/index.js';
 import { MantraClient } from '../mantra-client.js';
-import { networks } from '../config.js';
+import { networkNameSchema, formatError } from './schemas.js';
 
 export function registerContractTools(server: McpServer, mantraClient: MantraClient) {
   // CosmWasm contract query
@@ -13,9 +13,7 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
     {
       contractAddress: z.string().describe("Address of the CosmWasm contract to query"),
       queryMsg: z.record(z.any()).describe("The query message to send to the contract as a JSON object"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`")
+      networkName: networkNameSchema,
     },
     async ({ contractAddress, queryMsg, networkName }) => {
       await mantraClient.initialize(networkName);
@@ -27,10 +25,7 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
         };
       } catch (error: any) {
         return {
-          content: [{
-            type: "text",
-            text: `Error querying contract: ${error.message || JSON.stringify(error)}`
-          }],
+          content: [{type: "text", text: `Error querying contract: ${error.message || JSON.stringify(error)}`}],
         };
       }
     }
@@ -45,35 +40,23 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
       abi: z.array(z.unknown()).describe('The ABI of the smart contract function, as a JSON array'),
       functionName: z.string().describe("The name of the function to call (e.g., 'balanceOf')"),
       args: z.array(z.unknown()).optional().describe("The arguments to pass to the function, as an array"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ contractAddress, abi, functionName, args = [], networkName }) => {
       try {
         const parsedAbi = typeof abi === 'string' ? JSON.parse(abi) : abi;
 
-        const params = {
-          address: contractAddress as Address,
-          abi: parsedAbi,
-          functionName,
-          args
-        };
-
-        const result = await services.readContract(params, networkName);
+        const result = await services.readContract(
+          { address: contractAddress as Address, abi: parsedAbi, functionName, args },
+          networkName
+        );
 
         return {
-          content: [{
-            type: 'text',
-            text: services.helpers.formatJson(result)
-          }]
+          content: [{type: 'text', text: services.helpers.formatJson(result)}]
         };
       } catch (error) {
         return {
-          content: [{
-            type: 'text',
-            text: `Error reading contract: ${error instanceof Error ? error.message : String(error)}`
-          }],
+          content: [{type: 'text', text: `Error reading contract: ${formatError(error)}`}],
           isError: true
         };
       }
@@ -86,14 +69,11 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
     'Check if an EVM address is a smart contract or an externally owned account (EOA)',
     {
       address: z.string().describe("The wallet or contract address to check (e.g., '0x1234...')"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ address, networkName }) => {
       try {
         const result = await services.isContract(address, networkName);
-
         return {
           content: [{
             type: 'text',
@@ -107,10 +87,7 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
         };
       } catch (error) {
         return {
-          content: [{
-            type: 'text',
-            text: `Error checking if address is a contract: ${error instanceof Error ? error.message : String(error)}`
-          }],
+          content: [{type: 'text', text: `Error checking if address is a contract: ${formatError(error)}`}],
           isError: true
         };
       }

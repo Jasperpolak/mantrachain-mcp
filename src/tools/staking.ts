@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MantraClient } from '../mantra-client.js';
 import { networks } from '../config.js';
 import { convertBigIntToString } from '../utils.js';
+import { networkNameSchema } from './schemas.js';
 
 export function registerStakingTools(server: McpServer, mantraClient: MantraClient) {
   // Get validators
@@ -10,9 +11,7 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
     "get-validators",
     "Get all active validators on MANTRA Chain",
     {
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ networkName }) => {
       await mantraClient.initialize(networkName);
@@ -29,9 +28,7 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
     "Get current staking delegations for an address on MANTRA Chain",
     {
       address: z.string().describe("The bech32 address to query delegations for (e.g., 'mantra1...')"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ address, networkName }) => {
       await mantraClient.initialize(networkName);
@@ -64,9 +61,7 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
     "Get all available staking rewards for an address on MANTRA Chain",
     {
       address: z.string().describe("The bech32 address to query rewards for (e.g., 'mantra1...')"),
-      networkName: z.string().refine(val => Object.keys(networks).includes(val), {
-        message: "Must be a valid network name"
-      }).describe("Name of the network to use - check available networks via `networks://all`. Defaults to `mantra-1` mainnet."),
+      networkName: networkNameSchema,
     },
     async ({ address, networkName }) => {
       await mantraClient.initialize(networkName);
@@ -77,7 +72,6 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
 
       const raw = convertBigIntToString(rewards);
 
-      // Format total rewards
       const formattedTotals = (raw.total || []).map((t: any) => {
         if (t.denom === network.denom) {
           const display = (Number(t.amount) / 10 ** exponent).toFixed(6);

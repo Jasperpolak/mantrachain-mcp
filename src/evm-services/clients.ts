@@ -10,13 +10,8 @@ const clientCache = new Map<string, PublicClient>();
 export function getPublicClient(network = DEFAULT_NETWORK): PublicClient {
 	const cacheKey = String(network);
 
-	if (clientCache.has(cacheKey)) {
-		const cachedClient = clientCache.get(cacheKey);
-		if (!cachedClient) {
-			throw new Error(`Client cache inconsistency for network ${network}`);
-		}
-		return cachedClient;
-	}
+	const cached = clientCache.get(cacheKey);
+	if (cached) return cached;
 
 	const chain = getChain(network);
 	const rpcUrl = chain.rpcUrls.default.http[0];
