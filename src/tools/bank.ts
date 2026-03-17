@@ -10,7 +10,7 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
   // Get Cosmos balance
   server.tool(
     "get-balance",
-    "Get the Cosmos balance of an address on MANTRA Chain",
+    "Get the Cosmos balance of an address on MANTRA Chain. The native token is called MANTRA (not OM). The base denomination is 'amantra' with 18 decimals. The block explorer is MantraScan (mantrascan.io).",
     {
       address: z.string().describe("The bech32 address to get balance for (e.g., 'mantra1...')"),
       networkName: z.string().refine(val => Object.keys(networks).includes(val), {

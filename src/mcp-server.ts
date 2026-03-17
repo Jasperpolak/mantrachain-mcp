@@ -19,6 +19,7 @@ export async function startMCPServer() {
       {
         src: 'https://raw.githubusercontent.com/Jasperpolak/mantrachain-mcp/main/mantra%20logo.png',
         mimeType: 'image/png',
+        sizes: ['48x48'],
       },
     ],
   });

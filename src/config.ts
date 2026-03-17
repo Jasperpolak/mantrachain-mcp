@@ -7,6 +7,7 @@ dotenv.config();
 export interface NetworkConfig {
   rpcEndpoint: string;
   apiEndpoint: string;
+  archiveApiEndpoint?: string;
   evmEndpoint?: string;
   evmChainId?: string;
   chainId: string;
@@ -26,6 +27,7 @@ const NETWORKS: Record<string, NetworkConfig> = {
   "mantra-1": {
     rpcEndpoint: 'https://rpc.mantrachain.io',
     apiEndpoint: 'https://api.mantrachain.io',
+    archiveApiEndpoint: 'https://api.archive.mantrachain.io',
     evmEndpoint: 'https://evm.mantrachain.io',
     evmChainId: '5888',
     chainId: 'mantra-1',
