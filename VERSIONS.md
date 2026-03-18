@@ -80,34 +80,30 @@ Based on internal testing feedback from Octavio (operations). Added 3 new tools,
 
 ---
 
-## v0.3 — Roadmap
+## v0.3 — Blockscout Integration
 
-Driven by gaps identified in Octavio's test report. The main theme is **indexed data** — things that standard RPC nodes can't provide natively.
+Resolved the remaining high-priority gaps from Octavio's test report by integrating the Blockscout v2 REST API at `blockscout.mantrascan.io`. No custom indexer needed — Blockscout already indexes all EVM data on MANTRA Chain. Added 7 new tools. Total: 38 tools.
 
-### High priority: EVM tx history by address
-- Standard EVM RPC has no `eth_getTransactionsByAddress` equivalent
-- MantraScan does not have a public API
-- Options to investigate:
-  - **Blockscout** — open-source explorer with REST + GraphQL APIs. Check if MANTRA runs one or if we can point to a public instance.
-  - **The Graph** — decentralized indexing. Check for existing MANTRA subgraphs or feasibility of deploying one.
-  - **Custom indexer** — lightweight service that listens to new blocks and indexes tx sender/recipient. Most control, most effort.
-  - **Covalent / Alchemy / similar** — third-party indexed APIs. Check MANTRA chain support.
+### New tools (Blockscout-powered)
+- `get_evm_txs_by_address` — EVM transaction history for any address. Paginated, includes decoded input, token transfers, gas details. Resolves the #1 gap from v0.2.
+- `get_address_token_list` — Enumerate all ERC-20/721/1155 tokens held by a wallet. No pre-known contract list required.
+- `get_token_holders` — List all holders of a given ERC-20 token with balances. Enables distribution analysis.
+- `get_address_token_transfers` — Token transfer history for an address. Filter by token contract or type (ERC-20/721/1155).
+- `get_address_info` — Comprehensive address profile: balance, tx count, contract status, verification, token metadata, creator.
+- `get_chain_stats` — MANTRA Chain EVM stats: total txs, addresses, gas prices, MANTRA price, block time, utilization.
 
-### Token enumeration per wallet
-- List all ERC-20 tokens held by an address (not just query a known token)
-- Requires indexed data — same investigation as tx history
+### New tool (MCP-only)
+- `get_token_info_by_symbol` — Hardcoded registry of canonical MANTRA Chain tokens (wMANTRA, stMANTRA, mantraUSD, USDC, USDT, wBTC, wETH, HYPE). Maps symbol to contract address, name, and decimals. Fixes the hallucination where Claude invents this tool.
 
-### Holder lists
-- List all holders of a given ERC-20 token
-- Requires Transfer event indexing or a third-party API
+### Architecture
+- New `BlockscoutService` class wraps all Blockscout v2 API calls (`src/services/blockscout-service.ts`)
+- Token registry in `src/token-registry.ts` with mainnet and testnet addresses
+- `blockscoutEndpoint` added to `NetworkConfig` (mainnet only for now; testnet TBD)
+- No new dependencies — uses native `fetch()`
 
-### LP position enumeration
-- List all LP positions for an address across DEX pools
-- Requires knowledge of pool contract interfaces and position tracking
-
-### Other items from feedback
-- Symbol-to-address resolution (Claude currently hallucinates a `get_token_info_by_symbol` tool that doesn't exist). Could add a hardcoded registry of known MANTRA chain tokens.
-- Algebra/concentrated liquidity pool introspection (tick state, price ranges) — depends on contract ABI availability
+### Remaining items for future versions
+- LP position enumeration — needs Algebra pool ABI deep-dive
+- Algebra/concentrated liquidity pool introspection (tick state, price ranges)
 - Vault underlying amount queries — each vault has custom methods, hard to support generically
 
 ### Context for the next agent
@@ -115,3 +111,4 @@ Driven by gaps identified in Octavio's test report. The main theme is **indexed 
 - The MCP is deployed on Cloud Run at `https://mantrachain-mcp-363874984344.europe-west1.run.app/mcp`
 - All tools are read-only. No signing, no wallets, no state changes.
 - The codebase is TypeScript, uses the MCP SDK (`@modelcontextprotocol/sdk`), viem for EVM, and CosmJS for Cosmos.
+- Blockscout v2 API is at `https://blockscout.mantrascan.io/api/v2` — public, no auth required.

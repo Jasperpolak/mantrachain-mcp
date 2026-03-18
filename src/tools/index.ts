@@ -11,6 +11,7 @@ import { registerTxTools } from './tx.js';
 import { registerCosmosTxTools } from './cosmos-tx.js';
 import { registerAddressTools } from './address.js';
 import { registerSupplyTools } from './supply.js';
+import { registerBlockscoutTools } from './blockscout.js';
 
 export { registerAllPrompts } from './prompts.js';
 
@@ -31,4 +32,7 @@ export function registerAllTools(server: McpServer, mantraClient: MantraClient) 
   registerCosmosTxTools(server);
   registerAddressTools(server);
   registerSupplyTools(server);
+
+  // Phase 3 tools (Blockscout-powered)
+  registerBlockscoutTools(server, mantraClient);
 }

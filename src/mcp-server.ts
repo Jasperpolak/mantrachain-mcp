@@ -14,7 +14,7 @@ export async function startMCPServer() {
   // Create MCP server
   const server = new McpServer({
     name: 'MANTRA Chain MCP Server (Read-Only)',
-    version: '2.0.0',
+    version: '3.0.0',
     icons: [
       {
         src: 'https://raw.githubusercontent.com/Jasperpolak/mantrachain-mcp/main/mantra%20logo.png',

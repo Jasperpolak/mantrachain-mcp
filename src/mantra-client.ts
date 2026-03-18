@@ -7,6 +7,7 @@ import { StakingService } from './services/staking-service.js';
 import { NetworkService } from './services/network-service.js';
 import { ContractService, ContractQueryParams } from './services/contract-service.js';
 import { DexService, SwapParams, PoolInfo, SwapOperation } from './services/dex-service.js';
+import { BlockscoutService } from './services/blockscout-service.js';
 
 interface NetworkClients {
   bankService: BankService;
@@ -14,6 +15,7 @@ interface NetworkClients {
   networkService: NetworkService;
   contractService: ContractService;
   dexService: DexService;
+  blockscoutService?: BlockscoutService;
 }
 
 export class MantraClient {
@@ -49,6 +51,7 @@ export class MantraClient {
       networkService: new NetworkService(...args),
       contractService: new ContractService(...args),
       dexService: new DexService(...args),
+      blockscoutService: network.blockscoutEndpoint ? new BlockscoutService(network) : undefined,
     });
   }
 
@@ -96,5 +99,35 @@ export class MantraClient {
 
   async simulateSwap(params: SwapParams): Promise<{ expectedReturn: string, routes: SwapOperation[] }> {
     return this.services.dexService.simulateSwap(params);
+  }
+
+  private get blockscout(): BlockscoutService {
+    const svc = this.services.blockscoutService;
+    if (!svc) throw new Error('Blockscout is not available for this network');
+    return svc;
+  }
+
+  async getAddressTransactions(address: string, pageParams?: Record<string, string>) {
+    return this.blockscout.getAddressTransactions(address, pageParams);
+  }
+
+  async getAddressTokens(address: string, pageParams?: Record<string, string>) {
+    return this.blockscout.getAddressTokens(address, pageParams);
+  }
+
+  async getAddressTokenTransfers(address: string, options?: { token?: string; type?: string }, pageParams?: Record<string, string>) {
+    return this.blockscout.getAddressTokenTransfers(address, options, pageParams);
+  }
+
+  async getTokenHolders(contractAddress: string, pageParams?: Record<string, string>) {
+    return this.blockscout.getTokenHolders(contractAddress, pageParams);
+  }
+
+  async getAddressInfo(address: string) {
+    return this.blockscout.getAddressInfo(address);
+  }
+
+  async getChainStats() {
+    return this.blockscout.getChainStats();
   }
 }

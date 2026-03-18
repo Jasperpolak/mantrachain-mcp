@@ -20,6 +20,7 @@ export interface NetworkConfig {
   displayDenomExponent?: number;
   explorerUrl?: string;
   dexContractAddress?: string;
+  blockscoutEndpoint?: string;
 }
 
 // Network configurations
@@ -39,7 +40,8 @@ const NETWORKS: Record<string, NetworkConfig> = {
     displayDenom: 'MANTRA',
     displayDenomExponent: 18,
     explorerUrl: 'https://mantrascan.io/mainnet',
-    dexContractAddress: 'mantra1466nf3zuxpya8q9emxukd7vftaf6h4psr0a07srl5zw74zh84yjqagspfm'
+    dexContractAddress: 'mantra1466nf3zuxpya8q9emxukd7vftaf6h4psr0a07srl5zw74zh84yjqagspfm',
+    blockscoutEndpoint: 'https://blockscout.mantrascan.io/api/v2'
   },
   "mantra-dukong-1": {
     rpcEndpoint: 'https://rpc.dukong.mantrachain.io',
