@@ -17,11 +17,18 @@ export function registerBankTools(server: McpServer, mantraClient: MantraClient)
       networkName: networkNameSchema,
     },
     async ({ address, networkName }) => {
-      await mantraClient.initialize(networkName);
-      const balance = await mantraClient.getBalance(address);
-      return {
-        content: [{type: "text", text: JSON.stringify(balance)}],
-      };
+      try {
+        await mantraClient.initialize(networkName);
+        const balance = await mantraClient.getBalance(address);
+        return {
+          content: [{type: "text", text: JSON.stringify(balance)}],
+        };
+      } catch (error) {
+        return {
+          content: [{type: 'text', text: `Error fetching balance: ${formatError(error)}`}],
+          isError: true
+        };
+      }
     }
   );
 

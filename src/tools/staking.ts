@@ -3,7 +3,7 @@ import { z } from "zod";
 import { MantraClient } from '../mantra-client.js';
 import { networks } from '../config.js';
 import { convertBigIntToString } from '../utils.js';
-import { networkNameSchema } from './schemas.js';
+import { networkNameSchema, formatError } from './schemas.js';
 
 export function registerStakingTools(server: McpServer, mantraClient: MantraClient) {
   // Get validators
@@ -14,11 +14,18 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
       networkName: networkNameSchema,
     },
     async ({ networkName }) => {
-      await mantraClient.initialize(networkName);
-      const validators = await mantraClient.getValidators();
-      return {
-        content: [{type: "text", text: JSON.stringify(convertBigIntToString(validators))}],
-      };
+      try {
+        await mantraClient.initialize(networkName);
+        const validators = await mantraClient.getValidators();
+        return {
+          content: [{type: "text", text: JSON.stringify(convertBigIntToString(validators))}],
+        };
+      } catch (error) {
+        return {
+          content: [{type: 'text', text: `Error fetching validators: ${formatError(error)}`}],
+          isError: true
+        };
+      }
     }
   );
 
@@ -31,27 +38,34 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
       networkName: networkNameSchema,
     },
     async ({ address, networkName }) => {
-      await mantraClient.initialize(networkName);
-      const delegations = await mantraClient.getDelegations(address);
-      const network = networks[networkName];
-      const exponent = network.displayDenomExponent || 18;
-      const denom = network.displayDenom || 'MANTRA';
+      try {
+        await mantraClient.initialize(networkName);
+        const delegations = await mantraClient.getDelegations(address);
+        const network = networks[networkName];
+        const exponent = network.displayDenomExponent || 18;
+        const denom = network.displayDenom || 'MANTRA';
 
-      const formatted = (delegations || []).map((d: any) => {
-        const rawAmount = d.balance?.amount || '0';
-        const display = (Number(BigInt(rawAmount)) / 10 ** exponent).toFixed(6);
+        const formatted = (delegations || []).map((d: any) => {
+          const rawAmount = d.balance?.amount || '0';
+          const display = (Number(BigInt(rawAmount)) / 10 ** exponent).toFixed(6);
+          return {
+            ...convertBigIntToString(d),
+            displayAmount: `${display} ${denom}`,
+          };
+        });
+
         return {
-          ...convertBigIntToString(d),
-          displayAmount: `${display} ${denom}`,
+          content: [{type: "text", text: JSON.stringify({
+            delegations: formatted,
+            IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${network.denom}" (not "uom").`,
+          })}],
         };
-      });
-
-      return {
-        content: [{type: "text", text: JSON.stringify({
-          delegations: formatted,
-          IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${network.denom}" (not "uom").`,
-        })}],
-      };
+      } catch (error) {
+        return {
+          content: [{type: 'text', text: `Error fetching delegations: ${formatError(error)}`}],
+          isError: true
+        };
+      }
     }
   );
 
@@ -64,37 +78,44 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
       networkName: networkNameSchema,
     },
     async ({ address, networkName }) => {
-      await mantraClient.initialize(networkName);
-      const unbonding = await mantraClient.getUnbondingDelegations(address);
-      const network = networks[networkName];
-      const exponent = network.displayDenomExponent || 18;
-      const denom = network.displayDenom || 'MANTRA';
+      try {
+        await mantraClient.initialize(networkName);
+        const unbonding = await mantraClient.getUnbondingDelegations(address);
+        const network = networks[networkName];
+        const exponent = network.displayDenomExponent || 18;
+        const denom = network.displayDenom || 'MANTRA';
 
-      const formatted = (unbonding || []).map((u: any) => {
-        const entries = (u.entries || []).map((e: any) => {
-          const rawBalance = e.balance || '0';
-          const rawInitial = e.initialBalance || '0';
-          const displayBalance = (Number(BigInt(rawBalance)) / 10 ** exponent).toFixed(6);
-          const displayInitial = (Number(BigInt(rawInitial)) / 10 ** exponent).toFixed(6);
+        const formatted = (unbonding || []).map((u: any) => {
+          const entries = (u.entries || []).map((e: any) => {
+            const rawBalance = e.balance || '0';
+            const rawInitial = e.initialBalance || '0';
+            const displayBalance = (Number(BigInt(rawBalance)) / 10 ** exponent).toFixed(6);
+            const displayInitial = (Number(BigInt(rawInitial)) / 10 ** exponent).toFixed(6);
+            return {
+              ...convertBigIntToString(e),
+              displayBalance: `${displayBalance} ${denom}`,
+              displayInitialBalance: `${displayInitial} ${denom}`,
+            };
+          });
           return {
-            ...convertBigIntToString(e),
-            displayBalance: `${displayBalance} ${denom}`,
-            displayInitialBalance: `${displayInitial} ${denom}`,
+            delegatorAddress: u.delegatorAddress,
+            validatorAddress: u.validatorAddress,
+            entries,
           };
         });
-        return {
-          delegatorAddress: u.delegatorAddress,
-          validatorAddress: u.validatorAddress,
-          entries,
-        };
-      });
 
-      return {
-        content: [{type: "text", text: JSON.stringify({
-          unbondingDelegations: formatted,
-          IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${network.denom}" (not "uom").`,
-        })}],
-      };
+        return {
+          content: [{type: "text", text: JSON.stringify({
+            unbondingDelegations: formatted,
+            IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${network.denom}" (not "uom").`,
+          })}],
+        };
+      } catch (error) {
+        return {
+          content: [{type: 'text', text: `Error fetching unbonding delegations: ${formatError(error)}`}],
+          isError: true
+        };
+      }
     }
   );
 
@@ -107,29 +128,36 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
       networkName: networkNameSchema,
     },
     async ({ address, networkName }) => {
-      await mantraClient.initialize(networkName);
-      const rewards = await mantraClient.getAvailableRewards(address);
-      const network = networks[networkName];
-      const exponent = network.displayDenomExponent || 18;
-      const denom = network.displayDenom || 'MANTRA';
+      try {
+        await mantraClient.initialize(networkName);
+        const rewards = await mantraClient.getAvailableRewards(address);
+        const network = networks[networkName];
+        const exponent = network.displayDenomExponent || 18;
+        const denom = network.displayDenom || 'MANTRA';
 
-      const raw = convertBigIntToString(rewards);
+        const raw = convertBigIntToString(rewards);
 
-      const formattedTotals = (raw.total || []).map((t: any) => {
-        if (t.denom === network.denom) {
-          const display = (Number(t.amount) / 10 ** exponent).toFixed(6);
-          return { ...t, display: `${display} ${denom}` };
-        }
-        return t;
-      });
+        const formattedTotals = (raw.total || []).map((t: any) => {
+          if (t.denom === network.denom) {
+            const display = (Number(t.amount) / 10 ** exponent).toFixed(6);
+            return { ...t, display: `${display} ${denom}` };
+          }
+          return t;
+        });
 
-      return {
-        content: [{type: "text", text: JSON.stringify({
-          ...raw,
-          total: formattedTotals,
-          IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${network.denom}" (not "uom").`,
-        })}],
-      };
+        return {
+          content: [{type: "text", text: JSON.stringify({
+            ...raw,
+            total: formattedTotals,
+            IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${network.denom}" (not "uom").`,
+          })}],
+        };
+      } catch (error) {
+        return {
+          content: [{type: 'text', text: `Error fetching rewards: ${formatError(error)}`}],
+          isError: true
+        };
+      }
     }
   );
 }
