@@ -70,6 +70,10 @@ export class MantraClient {
     return this.services.stakingService.getDelegations(address);
   }
 
+  async getUnbondingDelegations(address: string) {
+    return this.services.stakingService.getUnbondingDelegations(address);
+  }
+
   async getAvailableRewards(address: string) {
     return this.services.stakingService.getAvailableRewards(address);
   }

@@ -29,6 +29,18 @@ export class StakingService extends BaseService {
   }
 
   /**
+   * Get all unbonding delegations for a specific address
+   */
+  async getUnbondingDelegations(address: string) {
+    try {
+      const response = await this.queryClient.staking.delegatorUnbondingDelegations(address);
+      return response.unbondingResponses;
+    } catch (error) {
+      throw new Error(`Failed to fetch unbonding delegations: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
    * Get all available rewards for a specific address
    */
   async getAvailableRewards(address: string) {

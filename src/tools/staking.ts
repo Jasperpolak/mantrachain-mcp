@@ -55,6 +55,49 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
     }
   );
 
+  // Get unbonding delegations
+  server.tool(
+    "get-unbonding-delegations",
+    "Get current unbonding (unstaking) delegations for an address on MANTRA Chain",
+    {
+      address: z.string().describe("The bech32 address to query unbonding delegations for (e.g., 'mantra1...')"),
+      networkName: networkNameSchema,
+    },
+    async ({ address, networkName }) => {
+      await mantraClient.initialize(networkName);
+      const unbonding = await mantraClient.getUnbondingDelegations(address);
+      const network = networks[networkName];
+      const exponent = network.displayDenomExponent || 18;
+      const denom = network.displayDenom || 'MANTRA';
+
+      const formatted = (unbonding || []).map((u: any) => {
+        const entries = (u.entries || []).map((e: any) => {
+          const rawBalance = e.balance || '0';
+          const rawInitial = e.initialBalance || '0';
+          const displayBalance = (Number(BigInt(rawBalance)) / 10 ** exponent).toFixed(6);
+          const displayInitial = (Number(BigInt(rawInitial)) / 10 ** exponent).toFixed(6);
+          return {
+            ...convertBigIntToString(e),
+            displayBalance: `${displayBalance} ${denom}`,
+            displayInitialBalance: `${displayInitial} ${denom}`,
+          };
+        });
+        return {
+          delegatorAddress: u.delegatorAddress,
+          validatorAddress: u.validatorAddress,
+          entries,
+        };
+      });
+
+      return {
+        content: [{type: "text", text: JSON.stringify({
+          unbondingDelegations: formatted,
+          IMPORTANT: `The native token display name is "${denom}". Always refer to it as "${denom}" — never as "OM". The on-chain base denom is "${network.denom}" (not "uom").`,
+        })}],
+      };
+    }
+  );
+
   // Get available rewards
   server.tool(
     "get-available-rewards",
