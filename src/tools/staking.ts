@@ -137,9 +137,22 @@ export function registerStakingTools(server: McpServer, mantraClient: MantraClie
 
         const raw = convertBigIntToString(rewards);
 
+        // Cosmos SDK rewards are DecCoins: the amount string includes 18 extra
+        // decimal digits of precision on top of the base denom's own decimals.
+        // Total shift = exponent (18 for amantra→MANTRA) + 18 (DecCoin precision) = 36.
+        // Use BigInt throughout to avoid Number precision loss on large values.
+        const decCoinPrecision = 18;
+        const totalShift = exponent + decCoinPrecision;
         const formattedTotals = (raw.total || []).map((t: any) => {
           if (t.denom === network.denom) {
-            const display = (Number(t.amount) / 10 ** exponent).toFixed(6);
+            const amountStr = String(t.amount).split('.')[0];
+            const divisor = BigInt(10) ** BigInt(totalShift);
+            const amount = BigInt(amountStr);
+            const whole = amount / divisor;
+            const remainder = amount % divisor;
+            // Pad remainder to totalShift digits, take first 6 for display
+            const fracStr = remainder.toString().padStart(totalShift, '0').slice(0, 6);
+            const display = `${whole}.${fracStr}`;
             return { ...t, display: `${display} ${denom}` };
           }
           return t;
