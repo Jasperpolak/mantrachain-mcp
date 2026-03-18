@@ -3,6 +3,9 @@ import { z } from "zod";
 import { networks } from '../config.js';
 import { networkNameSchema, formatError } from './schemas.js';
 
+// Bech32 addresses: prefix + "1" + alphanumeric (no uppercase b/i/o/1)
+const BECH32_RE = /^[a-z][a-z0-9]*1[ac-hj-np-z02-9]{6,100}$/;
+
 async function queryTxs(baseUrl: string, query: string, limit: number, orderBy: string): Promise<any> {
   const params = new URLSearchParams();
   params.set('query', query);
@@ -100,6 +103,13 @@ export function registerCosmosTxTools(server: McpServer) {
     },
     async ({ networkName, address, pagination_limit }) => {
       try {
+        if (!BECH32_RE.test(address)) {
+          return {
+            content: [{type: 'text', text: `Error: invalid bech32 address format: ${address}`}],
+            isError: true,
+          };
+        }
+
         const network = networks[networkName];
         const baseUrl = (network.archiveApiEndpoint || network.apiEndpoint).replace(/\/+$/, '');
         const limit = pagination_limit || 20;

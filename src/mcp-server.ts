@@ -39,8 +39,12 @@ export async function startMCPServer() {
 async function startWithHttp(server: McpServer) {
   const app = express();
   app.use(express.json());
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+    : [];
+
   app.use(cors({
-    origin: '*',
+    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
     exposedHeaders: ['Mcp-Session-Id']
   }));
 
@@ -60,7 +64,7 @@ async function startWithHttp(server: McpServer) {
         transport.close();
       });
     } catch (error) {
-      console.error('Error handling MCP request:', error);
+      console.error('Error handling MCP request:', error instanceof Error ? error.message : String(error));
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: '2.0',

@@ -46,6 +46,15 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
     }
   );
 
+  // Allowed path prefixes for the generic network query tool (read-only Cosmos endpoints)
+  const ALLOWED_PATH_PREFIXES = [
+    '/cosmos/',
+    '/ibc/',
+    '/cosmwasm/',
+    '/mantra/',
+    '/osmosis/',
+  ];
+
   // Generic network query
   server.tool(
     "query-network",
@@ -53,25 +62,42 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
     {
       networkName: networkNameSchema,
       path: z.string().describe("API endpoint path from the OpenAPI spec, e.g., '/cosmos/bank/v1beta1/balances/{address}'"),
-      method: z.enum(["GET", "POST", "PUT", "DELETE"]).describe("HTTP method to use for the request"),
+      method: z.enum(["GET"]).describe("HTTP method to use for the request"),
       pathParams: z.record(z.string()).optional().describe("Path parameters to substitute in the URL path"),
       queryParams: z.record(z.string()).optional().describe("Query parameters to add to the request"),
-      body: z.any().optional().describe("Request body for POST/PUT requests"),
     },
-    async ({ networkName, path, method, pathParams, queryParams, body }) => {
+    async ({ networkName, path, method, pathParams, queryParams }) => {
       try {
+        // Reject path traversal and absolute URL attempts
+        if (path.includes('..') || path.includes('://')) {
+          return {
+            content: [{type: 'text', text: 'Error: path must not contain ".." or "://"'}],
+            isError: true,
+          };
+        }
+
+        // Ensure path starts with an allowed prefix
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        const isAllowed = ALLOWED_PATH_PREFIXES.some(prefix => normalizedPath.startsWith(prefix));
+        if (!isAllowed) {
+          return {
+            content: [{type: 'text', text: `Error: path must start with one of: ${ALLOWED_PATH_PREFIXES.join(', ')}`}],
+            isError: true,
+          };
+        }
+
         await mantraClient.initialize(networkName);
 
         let url = networks[networkName].apiEndpoint.replace(/\/+$/, '');
 
         if (pathParams) {
-          let substitutedPath = path;
+          let substitutedPath = normalizedPath;
           for (const [key, value] of Object.entries(pathParams)) {
             substitutedPath = substitutedPath.replace(`{${key}}`, encodeURIComponent(String(value)));
           }
           url += substitutedPath;
         } else {
-          url += path;
+          url += normalizedPath;
         }
 
         if (queryParams && Object.keys(queryParams).length > 0) {
@@ -85,7 +111,6 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: body ? JSON.stringify(body) : undefined,
         });
 
         const data = await response.json();
@@ -93,7 +118,10 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
           content: [{type: "text", text: JSON.stringify(data)}],
         };
       } catch (error) {
-        throw new Error(`Failed to execute network query: ${formatError(error)}`);
+        return {
+          content: [{type: 'text', text: `Failed to execute network query: ${formatError(error)}`}],
+          isError: true,
+        };
       }
     }
   );

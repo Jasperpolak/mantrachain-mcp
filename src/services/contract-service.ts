@@ -17,7 +17,7 @@ export class ContractService extends BaseService {
       const result = await this.wasmClient.queryContractSmart(contractAddress, queryMsg);
       return result;
     } catch (error) {
-      console.error('Error querying contract:', error);
+      console.error('Error querying contract:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }

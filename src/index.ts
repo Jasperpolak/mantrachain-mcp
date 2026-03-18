@@ -3,12 +3,12 @@ import { startMCPServer } from './mcp-server.js';
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (error) => {
-  console.error('Unhandled Rejection:', error);
+  console.error('Unhandled Rejection:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });
 
 // Start MCP Server
 startMCPServer().catch((error) => {
-  console.error('Failed to start MCP Server:', error);
+  console.error('Failed to start MCP Server:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

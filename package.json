@@ -25,25 +25,25 @@
     "access": "public"
   },
   "dependencies": {
-    "@cosmjs/cosmwasm-stargate": "^0.33.1",
+    "@cosmjs/cosmwasm-stargate": "0.33.1",
     "@cosmjs/crypto": "0.33.1",
     "@cosmjs/encoding": "0.33.1",
-    "@cosmjs/stargate": "^0.33.1",
+    "@cosmjs/stargate": "0.33.1",
     "@cosmjs/tendermint-rpc": "0.33.1",
-    "@modelcontextprotocol/sdk": "^1.10.1",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "cors": "2.8.6",
+    "dotenv": "16.6.1",
     "express": "5.1.0",
-    "viem": "^2.30.5",
-    "zod": "^3.24.2"
+    "viem": "2.47.4",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@modelcontextprotocol/inspector": "0.7.0",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.1",
-    "@types/node": "^22.13.10",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.8.2"
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/node": "22.19.15",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
   },
   "keywords": [
     "MANTRA",
