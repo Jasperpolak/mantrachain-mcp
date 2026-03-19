@@ -34,6 +34,7 @@ export function registerBlockscoutTools(server: McpServer, mantraClient: MantraC
           fee: tx.fee?.value,
           gas_used: tx.gas_used,
           gas_price: tx.gas_price,
+          method_id: tx.raw_input?.length >= 10 ? tx.raw_input.slice(0, 10) : null,
           decoded_input: tx.decoded_input ? {
             method_call: tx.decoded_input.method_call,
             method_id: tx.decoded_input.method_id,
@@ -76,8 +77,9 @@ export function registerBlockscoutTools(server: McpServer, mantraClient: MantraC
       address: z.string().describe("The EVM address (0x...) to enumerate tokens for"),
       networkName: networkNameSchema,
       page_params: z.record(z.string()).optional().describe("Pagination parameters from a previous response's next_page_params field"),
+      limit: z.number().optional().describe("Optional: maximum number of tokens to return. Defaults to all."),
     },
-    async ({ address, networkName, page_params }) => {
+    async ({ address, networkName, page_params, limit }) => {
       try {
         await mantraClient.initialize(networkName);
         const result = await mantraClient.getAddressTokens(address, page_params);
@@ -96,14 +98,16 @@ export function registerBlockscoutTools(server: McpServer, mantraClient: MantraC
           token_instance: entry.token_instance,
         }));
 
+        const limitedItems = limit ? items.slice(0, limit) : items;
+
         return {
           content: [{
             type: "text",
             text: JSON.stringify({
               address,
               network: networkName,
-              token_count: items.length,
-              tokens: items,
+              token_count: limitedItems.length,
+              tokens: limitedItems,
               next_page_params: result.next_page_params || null,
             }, null, 2)
           }],
@@ -304,7 +308,7 @@ export function registerBlockscoutTools(server: McpServer, mantraClient: MantraC
   // 7. Chain stats overview
   server.tool(
     "get_chain_stats",
-    "Get MANTRA Chain EVM statistics: total transactions, total addresses, gas prices, MANTRA price, average block time, and network utilization.",
+    "Get MANTRA Chain EVM statistics: total transactions, total addresses, gas prices, MANTRA price, average block time (in milliseconds), and network utilization.",
     {
       networkName: networkNameSchema,
     },
@@ -321,7 +325,7 @@ export function registerBlockscoutTools(server: McpServer, mantraClient: MantraC
               total_transactions: stats.total_transactions,
               total_addresses: stats.total_addresses,
               total_blocks: stats.total_blocks,
-              average_block_time: stats.average_block_time,
+              average_block_time_ms: stats.average_block_time,
               network_utilization_percentage: stats.network_utilization_percentage,
               coin_price: stats.coin_price,
               market_cap: stats.market_cap,
