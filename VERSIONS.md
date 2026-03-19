@@ -101,10 +101,64 @@ Resolved the remaining high-priority gaps from Octavio's test report by integrat
 - `blockscoutEndpoint` added to `NetworkConfig` (mainnet only for now; testnet TBD)
 - No new dependencies — uses native `fetch()`
 
+### Test results (2026-03-18)
+28/28 tests passed (17 v2 regression + 11 v3 new tools). Test script: `test-v03.md` in repo root.
+
+Test addresses used:
+- Cosmos: `mantra1qnz0e4uq8zjqxa6fxdnkjyerdd98erslrp7wkk` (has balance, delegations, rewards)
+- EOA with tokens: `0x6827E52Eb8F25f9942c045C422909D29C2958b4E` (holds wMANTRA + USDC, 50+ transfers)
+- Contract: `0xE3047710EF6cB36Bcf1E58145529778eA7Cb5598` (wMANTRA, 42 holders)
+
+### Resolution of Octavio's test report gaps
+
+| Gap from test report | Impact | Status | How |
+|---|---|---|---|
+| No EVM tx history by address | High | Resolved (v0.3) | `get_evm_txs_by_address` via Blockscout |
+| No ERC-20 token enumeration for a wallet | High | Resolved (v0.3) | `get_address_token_list` via Blockscout |
+| No historical/snapshot reads | High | Resolved (v0.2) | `blockNumber` param on `read_evm_contract` |
+| No unbonding delegations | Medium | Resolved (v0.2) | `get-unbonding-delegations` |
+| No event log history by contract | Medium | Resolved (v0.2) | `get_evm_logs` |
+| No ERC-20 holder list | Medium | Resolved (v0.3) | `get_token_holders` via Blockscout |
+| No symbol-to-address resolution | Medium | Resolved (v0.3) | `get_token_info_by_symbol` (canonical tokens) |
+| No DEX trade history for a wallet | Medium | Partially resolved (v0.3) | `get_address_token_transfers` shows swap token movements |
+| LP vault underlying token amounts | Medium | Not resolved | Custom ABI per vault — not generalizable |
+| Algebra pool: specific LP position | Medium | Not resolved | Needs owner + tick range — Algebra ABI deep-dive |
+| No LP position enumeration | Medium | Not resolved | Needs Algebra pool ABI work |
+| Cosmos tx history pruning | Medium | Won't fix | Node-level limitation — users redirected to MantraScan |
+| No write/execute contract | Low | Won't fix | MCP is read-only by design |
+| sqrtPriceX96 price decode accuracy | Low | Not resolved | Nice-to-have, low priority |
+
+**Summary:** 8.5 of 14 gaps resolved across v0.2 and v0.3. All 3 high-priority items done. 3 items are inherently out of scope (node pruning, write tools, price decoding). 2.5 remaining items need Algebra/concentrated liquidity ABI work for a potential v0.4.
+
+---
+
+## v0.3.1 — Octavio Feedback Fixes
+
+Three fixes based on Octavio's "Review Part 2" feedback (2026-03-19). All changes in `src/tools/blockscout.ts`. Total tools unchanged: 38.
+
+### Changes
+
+1. **`average_block_time` → `average_block_time_ms`** — `get_chain_stats` output field renamed to make the unit (milliseconds) self-documenting. Value ~3300 was being misread as seconds. Tool description also updated.
+
+2. **`method_id` added to EVM transaction output** — `get_evm_txs_by_address` now extracts the 4-byte function selector from `raw_input` as a top-level `method_id` field (e.g. `0x93674396`). Present on all contract calls regardless of whether `decoded_input` is available. Null for simple transfers with no calldata.
+
+3. **`limit` parameter on `get_address_token_list`** — Optional client-side limit on the number of tokens returned. Blockscout doesn't support server-side limits on this endpoint, so we fetch then slice. Response includes `total_available` (count before limit) and `token_count` (count after limit). Default (no limit) is unchanged from v0.3.
+
+### Not addressed
+
+- **Transfer `method: null`** — Octavio reported null method fields on some token transfers (e.g. stMANTRA minting). Could not reproduce: Blockscout returns 4-byte selectors on all tested transfers. Asked Octavio for a specific tx hash if it recurs.
+- **LP vault/Algebra ABI work** — Deferred to v0.4. Requires per-vault custom ABI integration.
+
+### Test results (2026-03-19)
+7/7 tests passed (4 new + 3 regression). Test script: `test-v031.md` in repo root.
+
+---
+
 ### Remaining items for future versions
 - LP position enumeration — needs Algebra pool ABI deep-dive
-- Algebra/concentrated liquidity pool introspection (tick state, price ranges)
-- Vault underlying amount queries — each vault has custom methods, hard to support generically
+- LP vault underlying amounts — custom ABI per vault, not generalizable
+- Algebra pool specific position queries — needs owner + tickLower + tickUpper
+- sqrtPriceX96 human-readable price decoding — requires token decimal pair knowledge
 
 ### Context for the next agent
 - The Notion test report from Octavio is the primary source of truth for what users tried and what failed: `https://www.notion.so/Mantrachain-MCP-Capability-Feedback-3275c45f06f08124b26eee8eb0d47f3b`

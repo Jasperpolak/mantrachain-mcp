@@ -107,6 +107,7 @@ export function registerBlockscoutTools(server: McpServer, mantraClient: MantraC
               address,
               network: networkName,
               token_count: limitedItems.length,
+              total_available: items.length,
               tokens: limitedItems,
               next_page_params: result.next_page_params || null,
             }, null, 2)

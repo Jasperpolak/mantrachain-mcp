@@ -49,9 +49,9 @@ Use this in a clean Cowork window connected to the MANTRA Chain MCP. Disconnect 
 
 > List all tokens held by `0x6827E52Eb8F25f9942c045C422909D29C2958b4E` on mantra-1, but limit to 1 result.
 
-**Expected:** Response contains exactly 1 token. `token_count` should be `1`.
+**Expected:** Response contains exactly 1 token. `token_count` should be `1`. `total_available` should be `2` (or however many the wallet holds).
 
-**Pass criteria:** Only 1 token returned despite the wallet holding more.
+**Pass criteria:** Only 1 token returned despite the wallet holding more. `total_available` shows the full count.
 
 ---
 
@@ -59,9 +59,9 @@ Use this in a clean Cowork window connected to the MANTRA Chain MCP. Disconnect 
 
 > List all tokens held by `0x6827E52Eb8F25f9942c045C422909D29C2958b4E` on mantra-1.
 
-**Expected:** Returns all tokens the wallet holds (same as v0.3 behavior). `token_count` matches the actual number of tokens.
+**Expected:** Returns all tokens the wallet holds (same as v0.3 behavior). `token_count` and `total_available` should be equal.
 
-**Pass criteria:** No truncation when `limit` is not provided. Result identical to v0.3.
+**Pass criteria:** No truncation when `limit` is not provided. `token_count` equals `total_available`. Result identical to v0.3 plus the new `total_available` field.
 
 ---
 
