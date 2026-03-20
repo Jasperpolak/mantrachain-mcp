@@ -1,6 +1,6 @@
 {
   "name": "mantrachain-mcp",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "Read-only Model Context Protocol server for MANTRA Chain (Cosmos SDK L1) with EVM support",
   "main": "build/index.js",
   "type": "module",

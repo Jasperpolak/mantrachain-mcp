@@ -5,6 +5,7 @@ import * as services from '../evm-services/index.js';
 import { MantraClient } from '../mantra-client.js';
 import { convertBigIntToString } from '../utils.js';
 import { networkNameSchema, formatError } from './schemas.js';
+import { isPreEvmBlock, EVM_ACTIVATION_BLOCK } from '../evm-archive-fallback.js';
 
 export function registerContractTools(server: McpServer, mantraClient: MantraClient) {
   // CosmWasm contract query
@@ -46,6 +47,17 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
     },
     async ({ contractAddress, abi, functionName, args = [], blockNumber, networkName }) => {
       try {
+        // Pre-EVM block: no EVM contracts existed
+        if (blockNumber !== undefined && isPreEvmBlock(blockNumber)) {
+          return {
+            content: [{type: 'text', text: JSON.stringify({
+              error: 'pre_evm_block',
+              message: `Block ${blockNumber.toLocaleString()} is before EVM activation at block ${EVM_ACTIVATION_BLOCK.toLocaleString()} (Abunnati upgrade, Sep 2025). No EVM contract state exists for this block. EVM contracts were not deployed until after the upgrade.`,
+              suggestion: 'Use CosmWasm contract query (cosmwasm-contract-query) or Cosmos transaction tools for pre-EVM data.',
+            }, null, 2)}],
+          };
+        }
+
         const parsedAbi = typeof abi === 'string' ? JSON.parse(abi) : abi;
 
         const result = await services.readContract(
@@ -116,6 +128,21 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
     },
     async ({ address, fromBlock, toBlock, blockHash, topics, networkName }) => {
       try {
+        // Pre-EVM block range: no EVM logs existed
+        if (fromBlock !== undefined && isPreEvmBlock(fromBlock)) {
+          if (toBlock !== undefined && isPreEvmBlock(toBlock)) {
+            return {
+              content: [{type: 'text', text: JSON.stringify({
+                error: 'pre_evm_block',
+                message: `Block range ${fromBlock.toLocaleString()}-${toBlock.toLocaleString()} is before EVM activation at block ${EVM_ACTIVATION_BLOCK.toLocaleString()} (Abunnati upgrade, Sep 2025). No EVM event logs exist for this range.`,
+                suggestion: 'Use Cosmos transaction search (search_cosmos_txs) for pre-EVM event data.',
+              }, null, 2)}],
+            };
+          }
+          // Adjust fromBlock to EVM activation if range spans the boundary
+          fromBlock = EVM_ACTIVATION_BLOCK;
+        }
+
         const params: any = {};
         if (address) params.address = address as Address;
         if (blockHash) {

@@ -76,13 +76,14 @@ export function registerBlockscoutTools(server: McpServer, mantraClient: MantraC
     {
       address: z.string().describe("The EVM address (0x...) to enumerate tokens for"),
       networkName: networkNameSchema,
+      type: z.enum(["ERC-20", "ERC-721", "ERC-1155"]).optional().describe("Optional: filter by token type"),
       page_params: z.record(z.string()).optional().describe("Pagination parameters from a previous response's next_page_params field"),
       limit: z.number().optional().describe("Optional: maximum number of tokens to return. Defaults to all."),
     },
-    async ({ address, networkName, page_params, limit }) => {
+    async ({ address, networkName, type, page_params, limit }) => {
       try {
         await mantraClient.initialize(networkName);
-        const result = await mantraClient.getAddressTokens(address, page_params);
+        const result = await mantraClient.getAddressTokens(address, { type }, page_params);
 
         const items = (result.items || []).map((entry: any) => ({
           token: {
@@ -218,7 +219,56 @@ export function registerBlockscoutTools(server: McpServer, mantraClient: MantraC
     }
   );
 
-  // 5. Symbol-to-address resolution (MCP-only, no Blockscout)
+  // 5. Internal transactions by address
+  server.tool(
+    "get_evm_internal_txs_by_address",
+    "Get internal (contract-initiated) EVM transactions for an address. These are calls made by smart contracts during execution — e.g. token mints, internal transfers — that don't appear in normal transaction history. Paginated.",
+    {
+      address: z.string().describe("The EVM address (0x...) to get internal transactions for"),
+      networkName: networkNameSchema,
+      page_params: z.record(z.string()).optional().describe("Pagination parameters from a previous response's next_page_params field"),
+    },
+    async ({ address, networkName, page_params }) => {
+      try {
+        await mantraClient.initialize(networkName);
+        const result = await mantraClient.getAddressInternalTransactions(address, page_params);
+
+        const items = (result.items || []).map((tx: any) => ({
+          block_number: tx.block_number,
+          timestamp: tx.timestamp,
+          transaction_hash: tx.transaction_hash,
+          from: tx.from?.hash,
+          to: tx.to?.hash,
+          value: tx.value,
+          type: tx.type,
+          gas_limit: tx.gas_limit,
+          error: tx.error,
+          success: tx.success,
+          created_contract: tx.created_contract?.hash,
+        }));
+
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              address,
+              network: networkName,
+              internal_tx_count: items.length,
+              internal_transactions: items,
+              next_page_params: result.next_page_params || null,
+            }, null, 2)
+          }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: `Error fetching internal transactions: ${formatError(error)}` }],
+          isError: true
+        };
+      }
+    }
+  );
+
+  // 6. Symbol-to-address resolution (MCP-only, no Blockscout)
   server.tool(
     "get_token_info_by_symbol",
     "Look up a canonical MANTRA Chain token by its symbol (e.g. 'USDC', 'wMANTRA', 'mantraUSD'). Returns the contract address, name, and decimals. Only covers canonical tokens — use get_erc20_token_info for arbitrary tokens.",

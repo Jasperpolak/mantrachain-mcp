@@ -31,9 +31,20 @@ export class BlockscoutService {
     return this.fetchJson(path);
   }
 
-  async getAddressTokens(address: string, pageParams?: Record<string, string>) {
-    const path = `/addresses/${address}/tokens?${this.buildPageParams(pageParams)}`;
+  async getAddressTokens(address: string, options?: { type?: string }, pageParams?: Record<string, string>) {
+    let path = `/addresses/${address}/tokens?`;
+    if (options?.type) path += `type=${encodeURIComponent(options.type)}&`;
+    path += this.buildPageParams(pageParams);
     return this.fetchJson(path);
+  }
+
+  async getAddressInternalTransactions(address: string, pageParams?: Record<string, string>) {
+    const path = `/addresses/${address}/internal-transactions?${this.buildPageParams(pageParams)}`;
+    return this.fetchJson(path);
+  }
+
+  async getNFTInstance(contractAddress: string, tokenId: string) {
+    return this.fetchJson(`/tokens/${contractAddress}/instances/${tokenId}`);
   }
 
   async getAddressTokenTransfers(address: string, options?: { token?: string; type?: string }, pageParams?: Record<string, string>) {

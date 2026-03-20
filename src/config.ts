@@ -9,6 +9,7 @@ export interface NetworkConfig {
   apiEndpoint: string;
   archiveApiEndpoint?: string;
   evmEndpoint?: string;
+  evmArchiveEndpoint?: string;
   evmChainId?: string;
   chainId: string;
   prefix: string;
@@ -30,6 +31,7 @@ const NETWORKS: Record<string, NetworkConfig> = {
     apiEndpoint: 'https://api.mantrachain.io',
     archiveApiEndpoint: 'https://api.archive.mantrachain.io',
     evmEndpoint: 'https://evm.mantrachain.io',
+    evmArchiveEndpoint: 'https://evm.archive.mantrachain.io',
     evmChainId: '5888',
     chainId: 'mantra-1',
     prefix: 'mantra',

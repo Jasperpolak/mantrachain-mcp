@@ -3,23 +3,24 @@ import { z } from "zod";
 import type { Address } from 'viem';
 import * as services from '../evm-services/index.js';
 import { erc721Abi } from '../evm-services/abis.js';
+import { MantraClient } from '../mantra-client.js';
 import { networkNameSchema, formatError } from './schemas.js';
 
-export function registerTokenTools(server: McpServer) {
-	// Get NFT (ERC721) information
+export function registerTokenTools(server: McpServer, mantraClient: MantraClient) {
+	// Get NFT (ERC721) information — with Blockscout fallback
 	server.tool(
 		'get_nft_info',
-		'Get detailed information about a specific NFT (ERC721 token), including collection name, symbol, token URI, and current owner if available.',
+		'Get detailed information about a specific NFT (ERC721 token), including collection name, symbol, token URI, and current owner if available. Falls back to Blockscout if the contract uses a non-standard interface.',
 		{
 			tokenAddress: z.string().describe("The contract address of the NFT collection (e.g., '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D')"),
 			tokenId: z.string().describe("The ID of the specific NFT token to query (e.g., '1234')"),
 			networkName: networkNameSchema,
 		},
 		async ({ tokenAddress, tokenId, networkName }) => {
+			// Try direct contract call first
 			try {
 				const nftInfo = await services.getERC721TokenMetadata(tokenAddress as Address, BigInt(tokenId), networkName);
 
-				// Check ownership separately (may fail if tokenId doesn't exist)
 				let owner: `0x${string}` | null = null;
 				try {
 					owner = await services.getPublicClient(networkName).readContract({
@@ -38,11 +39,50 @@ export function registerTokenTools(server: McpServer) {
 						text: JSON.stringify({ contract: tokenAddress, tokenId, network: networkName, ...nftInfo, owner: owner || 'Unknown' }, null, 2)
 					}]
 				};
-			} catch (error) {
-				return {
-					content: [{type: 'text', text: `Error fetching NFT info: ${formatError(error)}`}],
-					isError: true
-				};
+			} catch (directError) {
+				// Fallback to Blockscout token instance API
+				try {
+					await mantraClient.initialize(networkName);
+					const instance = await mantraClient.getNFTInstance(tokenAddress, tokenId);
+
+					const result: any = {
+						contract: tokenAddress,
+						tokenId,
+						network: networkName,
+						source: 'blockscout',
+						_note: 'Direct contract call failed (non-standard ERC-721 interface). Data retrieved via Blockscout indexer.',
+					};
+
+					if (instance.token) {
+						result.name = instance.token.name;
+						result.symbol = instance.token.symbol;
+						result.type = instance.token.type;
+						result.total_supply = instance.token.total_supply;
+						result.holders_count = instance.token.holders_count;
+					}
+
+					if (instance.metadata) {
+						result.metadata = instance.metadata;
+					}
+
+					result.image_url = instance.image_url || null;
+					result.animation_url = instance.animation_url || null;
+					result.external_app_url = instance.external_app_url || null;
+					result.owner = instance.owner?.hash || 'Unknown';
+
+					return {
+						content: [{
+							type: 'text',
+							text: JSON.stringify(result, null, 2)
+						}]
+					};
+				} catch (blockscoutError) {
+					// Both failed — return the original error with context
+					return {
+						content: [{type: 'text', text: `Error fetching NFT info: Direct contract call failed (${formatError(directError)}). Blockscout fallback also failed (${formatError(blockscoutError)}). This NFT contract may use a non-standard interface.`}],
+						isError: true
+					};
+				}
 			}
 		}
 	);

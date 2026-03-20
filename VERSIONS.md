@@ -154,6 +154,52 @@ Three fixes based on Octavio's "Review Part 2" feedback (2026-03-19). All change
 
 ---
 
+## v0.4 — Archive Fallback & Full Block Coverage
+
+Every block, every query, always an answer. v0.4 eliminates all "header not found" and pruning errors by adding automatic archive node fallback and pre-EVM Cosmos rerouting. Also fixes bugs from Octavio's v0.3.1 test report and adds internal transactions. Total: 39 tools.
+
+### Core feature: Seamless historical queries
+
+MANTRA Chain has three block zones:
+- **Blocks 1–8,618,887**: Pre-EVM (Cosmos only). EVM was activated by Proposal #20 (v5.0 Abunnati, Sep 17 2025).
+- **Blocks 8,618,888–~13.15M**: EVM existed, but data is pruned from the standard RPC node.
+- **Blocks ~13.15M+**: Both Cosmos and EVM data available from standard RPC.
+
+Previously, any query hitting zones 1 or 2 returned a cryptic "header not found" error. Now:
+
+1. **Archive node fallback** — When a standard RPC call fails with a pruning error, the MCP automatically retries against `evm.archive.mantrachain.io` (for EVM) or `api.archive.mantrachain.io` (for Cosmos, already in v0.2). The user never sees the failure.
+2. **Pre-EVM Cosmos reroute** — When an EVM tool targets a pre-Abunnati block:
+   - `get-block-info-evm` → returns Cosmos CometBFT block data with a note
+   - `get_transaction` / `get_transaction_receipt` → tries Cosmos tx lookup by hash
+   - `read_evm_contract` → returns definitive "no EVM state" message (contracts didn't exist)
+   - `get_evm_logs` → returns "no EVM logs" for fully pre-EVM ranges; adjusts `fromBlock` if range spans the boundary
+
+### Architecture changes
+- `evmArchiveEndpoint` added to `NetworkConfig` (`https://evm.archive.mantrachain.io` for mainnet)
+- `getArchiveClient()` in `evm-services/clients.ts` — cached viem client for archive EVM RPC
+- `evm-archive-fallback.ts` — shared utilities: `isPruningError()`, `isPreEvmBlock()`, `EVM_ACTIVATION_BLOCK`, address conversion helpers
+- Archive retry logic baked into EVM service layer (`readContract`, `getTransaction`, `getTransactionReceipt`, `getBlockByNumber`, `getBlockByHash`, `getLogs`) — all tools benefit automatically
+
+### New tool
+- `get_evm_internal_txs_by_address` — Internal (contract-initiated) EVM transactions for an address via Blockscout `/addresses/{addr}/internal-transactions`. Surfaces mints, internal calls, and contract-to-contract transfers invisible in `get_evm_txs_by_address`.
+
+### Bug fixes
+- **`get_address_token_list` type filter** — `type` parameter (ERC-20/ERC-721/ERC-1155) was silently ignored. Now passed through to Blockscout API as a query parameter. Filter works correctly.
+- **`get_nft_info` Blockscout fallback** — Direct ERC-721 contract calls fail on non-standard MANTRA EVM NFTs (Loki, OMIES). Now falls back to Blockscout's token instance API for metadata when the contract call reverts.
+
+### Resolved from Octavio's v0.3.1 test report
+
+| Bug/Gap | Status | How |
+|---|---|---|
+| `get_address_token_list` type filter silently ignored | Fixed | Type param passed to Blockscout API |
+| `get_transaction_receipt` archive node ceiling | Fixed | Auto-fallback to archive EVM node |
+| `read_evm_contract` "header not found" for old blocks | Fixed | Archive fallback + pre-EVM detection |
+| `get_nft_info` broken on MANTRA EVM NFTs | Fixed | Blockscout token instance fallback |
+| Internal txs absent from `get_evm_txs_by_address` | Fixed | New `get_evm_internal_txs_by_address` tool |
+| `method: null` on plain ETH sends | Won't fix | Structural — no calldata means no selector |
+
+---
+
 ### Remaining items for future versions
 - LP position enumeration — needs Algebra pool ABI deep-dive
 - LP vault underlying amounts — custom ABI per vault, not generalizable

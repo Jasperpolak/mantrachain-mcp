@@ -111,8 +111,16 @@ export class MantraClient {
     return this.blockscout.getAddressTransactions(address, pageParams);
   }
 
-  async getAddressTokens(address: string, pageParams?: Record<string, string>) {
-    return this.blockscout.getAddressTokens(address, pageParams);
+  async getAddressTokens(address: string, options?: { type?: string }, pageParams?: Record<string, string>) {
+    return this.blockscout.getAddressTokens(address, options, pageParams);
+  }
+
+  async getAddressInternalTransactions(address: string, pageParams?: Record<string, string>) {
+    return this.blockscout.getAddressInternalTransactions(address, pageParams);
+  }
+
+  async getNFTInstance(contractAddress: string, tokenId: string) {
+    return this.blockscout.getNFTInstance(contractAddress, tokenId);
   }
 
   async getAddressTokenTransfers(address: string, options?: { token?: string; type?: string }, pageParams?: Record<string, string>) {

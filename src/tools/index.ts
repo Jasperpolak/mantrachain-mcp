@@ -25,7 +25,7 @@ export function registerAllTools(server: McpServer, mantraClient: MantraClient) 
   registerNetworkTools(server, mantraClient);
   registerContractTools(server, mantraClient);
   registerDexTools(server, mantraClient);
-  registerTokenTools(server);
+  registerTokenTools(server, mantraClient);
   registerTxTools(server);
 
   // Phase 2 tools
