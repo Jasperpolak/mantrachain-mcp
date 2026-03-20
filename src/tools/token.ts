@@ -1,10 +1,19 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { Address } from 'viem';
+import { type Address, getAddress } from 'viem';
 import * as services from '../evm-services/index.js';
 import { erc721Abi } from '../evm-services/abis.js';
 import { MantraClient } from '../mantra-client.js';
 import { networkNameSchema, formatError } from './schemas.js';
+
+/** Safely normalize an address to EIP-55 checksum. Returns null if invalid. */
+function safeChecksum(addr: string): Address | null {
+	try {
+		return getAddress(addr);
+	} catch {
+		return null;
+	}
+}
 
 export function registerTokenTools(server: McpServer, mantraClient: MantraClient) {
 	// Get NFT (ERC721) information — with Blockscout fallback
@@ -17,14 +26,23 @@ export function registerTokenTools(server: McpServer, mantraClient: MantraClient
 			networkName: networkNameSchema,
 		},
 		async ({ tokenAddress, tokenId, networkName }) => {
+			// Normalize address to EIP-55 checksum
+			const checksummed = safeChecksum(tokenAddress);
+			if (!checksummed) {
+				return {
+					content: [{type: 'text', text: `Error: invalid EVM address: ${tokenAddress}`}],
+					isError: true
+				};
+			}
+
 			// Try direct contract call first
 			try {
-				const nftInfo = await services.getERC721TokenMetadata(tokenAddress as Address, BigInt(tokenId), networkName);
+				const nftInfo = await services.getERC721TokenMetadata(checksummed, BigInt(tokenId), networkName);
 
 				let owner: `0x${string}` | null = null;
 				try {
 					owner = await services.getPublicClient(networkName).readContract({
-						address: tokenAddress as Address,
+						address: checksummed,
 						abi: erc721Abi,
 						functionName: 'ownerOf',
 						args: [BigInt(tokenId)]
@@ -36,50 +54,92 @@ export function registerTokenTools(server: McpServer, mantraClient: MantraClient
 				return {
 					content: [{
 						type: 'text',
-						text: JSON.stringify({ contract: tokenAddress, tokenId, network: networkName, ...nftInfo, owner: owner || 'Unknown' }, null, 2)
+						text: JSON.stringify({ contract: checksummed, tokenId, network: networkName, ...nftInfo, owner: owner || 'Unknown' }, null, 2)
 					}]
 				};
 			} catch (directError) {
-				// Fallback to Blockscout token instance API
+				// Fallback to Blockscout — try instance first, then token-level info
 				try {
 					await mantraClient.initialize(networkName);
-					const instance = await mantraClient.getNFTInstance(tokenAddress, tokenId);
 
-					const result: any = {
-						contract: tokenAddress,
-						tokenId,
-						network: networkName,
-						source: 'blockscout',
-						_note: 'Direct contract call failed (non-standard ERC-721 interface). Data retrieved via Blockscout indexer.',
-					};
+					let instance: any = null;
+					let tokenInfo: any = null;
 
-					if (instance.token) {
-						result.name = instance.token.name;
-						result.symbol = instance.token.symbol;
-						result.type = instance.token.type;
-						result.total_supply = instance.token.total_supply;
-						result.holders_count = instance.token.holders_count;
+					// Try specific NFT instance
+					try {
+						instance = await mantraClient.getNFTInstance(checksummed, tokenId);
+					} catch {
+						// Instance not found — try token-level info
+						try {
+							tokenInfo = await mantraClient.getTokenInfo(checksummed);
+						} catch {
+							// Token also not indexed on Blockscout
+						}
 					}
 
-					if (instance.metadata) {
-						result.metadata = instance.metadata;
+					if (instance) {
+						const result: any = {
+							contract: checksummed,
+							tokenId,
+							network: networkName,
+							source: 'blockscout',
+							_note: 'Direct contract call failed (non-standard ERC-721 interface). Data retrieved via Blockscout indexer.',
+						};
+
+						if (instance.token) {
+							result.name = instance.token.name;
+							result.symbol = instance.token.symbol;
+							result.type = instance.token.type;
+							result.total_supply = instance.token.total_supply;
+							result.holders_count = instance.token.holders_count;
+						}
+
+						if (instance.metadata) {
+							result.metadata = instance.metadata;
+						}
+
+						result.image_url = instance.image_url || null;
+						result.animation_url = instance.animation_url || null;
+						result.external_app_url = instance.external_app_url || null;
+						result.owner = instance.owner?.hash || 'Unknown';
+
+						return {
+							content: [{
+								type: 'text',
+								text: JSON.stringify(result, null, 2)
+							}]
+						};
 					}
 
-					result.image_url = instance.image_url || null;
-					result.animation_url = instance.animation_url || null;
-					result.external_app_url = instance.external_app_url || null;
-					result.owner = instance.owner?.hash || 'Unknown';
+					if (tokenInfo) {
+						return {
+							content: [{
+								type: 'text',
+								text: JSON.stringify({
+									contract: checksummed,
+									tokenId,
+									network: networkName,
+									source: 'blockscout',
+									_note: `Direct contract call failed (non-standard ERC-721 interface). Specific token instance #${tokenId} not indexed on Blockscout, but collection-level data was found.`,
+									name: tokenInfo.name,
+									symbol: tokenInfo.symbol,
+									type: tokenInfo.type,
+									total_supply: tokenInfo.total_supply,
+									holders_count: tokenInfo.holders_count,
+									icon_url: tokenInfo.icon_url || null,
+								}, null, 2)
+							}]
+						};
+					}
 
+					// Neither worked
 					return {
-						content: [{
-							type: 'text',
-							text: JSON.stringify(result, null, 2)
-						}]
+						content: [{type: 'text', text: `NFT info unavailable: Direct contract call failed (${formatError(directError)}). This contract is not indexed on Blockscout either. The NFT contract at ${checksummed} may use a non-standard interface that is not compatible with ERC-721 metadata queries.`}],
+						isError: true
 					};
 				} catch (blockscoutError) {
-					// Both failed — return the original error with context
 					return {
-						content: [{type: 'text', text: `Error fetching NFT info: Direct contract call failed (${formatError(directError)}). Blockscout fallback also failed (${formatError(blockscoutError)}). This NFT contract may use a non-standard interface.`}],
+						content: [{type: 'text', text: `NFT info unavailable: Direct contract call failed (${formatError(directError)}). Blockscout fallback also failed (${formatError(blockscoutError)}). The NFT contract at ${checksummed} may use a non-standard interface.`}],
 						isError: true
 					};
 				}

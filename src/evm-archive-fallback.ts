@@ -17,8 +17,24 @@ export function isPruningError(error: unknown): boolean {
     msg.includes('header not found') ||
     msg.includes('is not available, lowest height is') ||
     msg.includes('missing trie node') ||
-    msg.includes('block not found')
+    msg.includes('block not found') ||
+    msg.includes('could not be found')
   );
+}
+
+/**
+ * Fetch a block from the archive Cosmos REST API.
+ * Uses the archive endpoint directly — bypasses the pruned standard RPC.
+ */
+export async function fetchArchiveCosmosBlock(networkName: string, height: number): Promise<any> {
+  const baseUrl = getArchiveApiEndpoint(networkName);
+  const response = await fetch(`${baseUrl}/cosmos/base/tendermint/v1beta1/blocks/${height}`, {
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(`Archive API error: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
 }
 
 /**

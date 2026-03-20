@@ -123,6 +123,10 @@ export class MantraClient {
     return this.blockscout.getNFTInstance(contractAddress, tokenId);
   }
 
+  async getTokenInfo(contractAddress: string) {
+    return this.blockscout.getTokenInfo(contractAddress);
+  }
+
   async getAddressTokenTransfers(address: string, options?: { token?: string; type?: string }, pageParams?: Record<string, string>) {
     return this.blockscout.getAddressTokenTransfers(address, options, pageParams);
   }

@@ -128,19 +128,33 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
     },
     async ({ address, fromBlock, toBlock, blockHash, topics, networkName }) => {
       try {
+        let adjustedFrom = fromBlock;
+        let adjustedTo = toBlock;
+        let boundaryNote: string | undefined;
+
         // Pre-EVM block range: no EVM logs existed
-        if (fromBlock !== undefined && isPreEvmBlock(fromBlock)) {
-          if (toBlock !== undefined && isPreEvmBlock(toBlock)) {
+        if (adjustedFrom !== undefined && isPreEvmBlock(adjustedFrom)) {
+          if (adjustedTo !== undefined && isPreEvmBlock(adjustedTo)) {
             return {
               content: [{type: 'text', text: JSON.stringify({
                 error: 'pre_evm_block',
-                message: `Block range ${fromBlock.toLocaleString()}-${toBlock.toLocaleString()} is before EVM activation at block ${EVM_ACTIVATION_BLOCK.toLocaleString()} (Abunnati upgrade, Sep 2025). No EVM event logs exist for this range.`,
+                message: `Block range ${adjustedFrom.toLocaleString()}-${adjustedTo.toLocaleString()} is before EVM activation at block ${EVM_ACTIVATION_BLOCK.toLocaleString()} (Abunnati upgrade, Sep 2025). No EVM event logs exist for this range.`,
                 suggestion: 'Use Cosmos transaction search (search_cosmos_txs) for pre-EVM event data.',
               }, null, 2)}],
             };
           }
           // Adjust fromBlock to EVM activation if range spans the boundary
-          fromBlock = EVM_ACTIVATION_BLOCK;
+          boundaryNote = `fromBlock adjusted from ${adjustedFrom.toLocaleString()} to ${EVM_ACTIVATION_BLOCK.toLocaleString()} (EVM activation boundary).`;
+          adjustedFrom = EVM_ACTIVATION_BLOCK;
+        }
+
+        // Clamp range to 10,000 blocks (RPC limit for eth_getLogs)
+        const MAX_LOG_RANGE = 10_000;
+        if (adjustedFrom !== undefined && adjustedTo !== undefined && (adjustedTo - adjustedFrom) > MAX_LOG_RANGE) {
+          const originalTo = adjustedTo;
+          adjustedTo = adjustedFrom + MAX_LOG_RANGE;
+          boundaryNote = (boundaryNote ? boundaryNote + ' ' : '') +
+            `toBlock clamped from ${originalTo.toLocaleString()} to ${adjustedTo.toLocaleString()} (RPC max range: ${MAX_LOG_RANGE.toLocaleString()} blocks). Query additional ranges to get more logs.`;
         }
 
         const params: any = {};
@@ -148,14 +162,26 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
         if (blockHash) {
           params.blockHash = blockHash as Hex;
         } else {
-          if (fromBlock !== undefined) params.fromBlock = BigInt(fromBlock);
-          if (toBlock !== undefined) params.toBlock = BigInt(toBlock);
+          if (adjustedFrom !== undefined) params.fromBlock = BigInt(adjustedFrom);
+          if (adjustedTo !== undefined) params.toBlock = BigInt(adjustedTo);
         }
         if (topics) params.topics = topics;
 
         const logs = await services.getLogs(params, networkName);
+        const result: any = convertBigIntToString(logs);
+
+        if (boundaryNote) {
+          return {
+            content: [{type: 'text', text: JSON.stringify({
+              _note: boundaryNote,
+              log_count: Array.isArray(result) ? result.length : 0,
+              logs: result,
+            }, null, 2)}]
+          };
+        }
+
         return {
-          content: [{type: 'text', text: JSON.stringify(convertBigIntToString(logs), null, 2)}]
+          content: [{type: 'text', text: JSON.stringify(result, null, 2)}]
         };
       } catch (error) {
         return {

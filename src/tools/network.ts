@@ -4,7 +4,7 @@ import * as services from '../evm-services/index.js';
 import { MantraClient } from '../mantra-client.js';
 import { networks } from '../config.js';
 import { networkNameSchema, formatError } from './schemas.js';
-import { isPreEvmBlock, EVM_ACTIVATION_BLOCK } from '../evm-archive-fallback.js';
+import { isPreEvmBlock, EVM_ACTIVATION_BLOCK, fetchArchiveCosmosBlock } from '../evm-archive-fallback.js';
 
 export function registerNetworkTools(server: McpServer, mantraClient: MantraClient) {
   // Get Cosmos block info
@@ -34,10 +34,9 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
     },
     async ({ height, networkName }) => {
       try {
-        // Pre-EVM block: automatically reroute to Cosmos block info
+        // Pre-EVM block: automatically reroute to Cosmos block info via archive
         if (height !== undefined && isPreEvmBlock(height)) {
-          await mantraClient.initialize(networkName);
-          const cosmosBlock = await mantraClient.getBlockInfo(height);
+          const cosmosBlock = await fetchArchiveCosmosBlock(networkName, height);
           return {
             content: [{type: 'text', text: JSON.stringify({
               _note: `Block ${height} is before EVM activation (block ${EVM_ACTIVATION_BLOCK.toLocaleString()}). Returning Cosmos block data instead.`,

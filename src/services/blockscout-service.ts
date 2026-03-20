@@ -47,6 +47,10 @@ export class BlockscoutService {
     return this.fetchJson(`/tokens/${contractAddress}/instances/${tokenId}`);
   }
 
+  async getTokenInfo(contractAddress: string) {
+    return this.fetchJson(`/tokens/${contractAddress}`);
+  }
+
   async getAddressTokenTransfers(address: string, options?: { token?: string; type?: string }, pageParams?: Record<string, string>) {
     let path = `/addresses/${address}/token-transfers?`;
     if (options?.token) path += `token=${options.token}&`;
