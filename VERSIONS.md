@@ -200,6 +200,37 @@ Previously, any query hitting zones 1 or 2 returned a cryptic "header not found"
 
 ---
 
+---
+
+## v0.4.1 — Code Quality & Hardening
+
+Internal code cleanup and hardening pass. No new tools, no behavioral changes. 58/58 tests passed (56 clean, 2 conditional on Blockscout infra). Total: 39 tools.
+
+### Refactoring
+
+- **`withArchiveFallback<T>()` generic** — Extracted a shared archive fallback wrapper in `evm-services/clients.ts`. Replaces 6 identical try/catch blocks across `blocks.ts`, `contracts.ts`, and `transactions.ts`. Any new EVM service function gets archive fallback for free by wrapping with this generic.
+- **`buildQuery()` rewrite** — `BlockscoutService` query string building replaced with `URLSearchParams`-based method. Fixes malformed `?&key=value` URL patterns that were silently tolerated by Blockscout but technically incorrect.
+- **`getArchiveApiEndpoint()` DRY** — 3 inline `(network.archiveApiEndpoint || network.apiEndpoint).replace(...)` in `cosmos-tx.ts` replaced with a single import from `evm-archive-fallback.ts`.
+- **`MAX_LOG_RANGE` centralized** — Constant moved from inline in `contract.ts` to `evm-archive-fallback.ts` alongside `EVM_ACTIVATION_BLOCK`.
+
+### Error handling fixes
+
+- **`get-block-info`** — Added try/catch wrapper. Previously, CometBFT RPC errors (e.g., future block height) threw unhandled exceptions.
+- **`cosmwasm-contract-query`** — Error response now includes `isError: true` (was missing) and uses `formatError()` instead of raw `error.message || JSON.stringify(error)`.
+- **`validateAddress` import** — Fixed broken named import in `contracts.ts` (`validateAddress` → `helpers.validateAddress` via the `utils` object export).
+
+### Reliability
+
+- **Fetch timeouts everywhere** — `AbortSignal.timeout(15_000)` added to all raw `fetch()` calls: `blockscout-service.ts`, `cosmos-tx.ts` (`queryTxs` + `get_cosmos_tx`), `evm-archive-fallback.ts`, `tx.ts` (Cosmos lookup fallback), `network.ts` (`query-network`). No more indefinite hangs on slow/unresponsive endpoints.
+- **Dead code removal** — Unused `evmToBech32`/`bech32ToEvm` exports removed from `evm-archive-fallback.ts`. Dead `networks` import removed from `tx.ts`.
+
+### Test results (2026-03-20)
+
+58/58 tests passed (22 v0.1–v0.3.1 regression + 18 v0.4 feature + 18 cleanup regression). Test script: `test-v041.md` in repo root.
+
+- 2 conditional passes: Blockscout 504 timeout (transient infra) and OMIES NFT not indexed (external data gap)
+- 0 failures
+
 ### Remaining items for future versions
 - LP position enumeration — needs Algebra pool ABI deep-dive
 - LP vault underlying amounts — custom ABI per vault, not generalizable
