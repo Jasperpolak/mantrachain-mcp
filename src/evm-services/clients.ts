@@ -1,5 +1,6 @@
 import { http, type PublicClient, createPublicClient } from 'viem';
 import { DEFAULT_NETWORK, getChain, networks } from '../config.js';
+import { isPruningError } from '../evm-archive-fallback.js';
 
 // Cache for clients to avoid recreating them for each request
 const clientCache = new Map<string, PublicClient>();
@@ -49,4 +50,27 @@ export function getArchiveClient(network = DEFAULT_NETWORK): PublicClient | null
 	archiveClientCache.set(cacheKey, client);
 
 	return client;
+}
+
+/**
+ * Run an operation against the standard client, falling back to the archive
+ * client if a pruning error is detected. Deduplicates the try/catch pattern
+ * used across blocks, contracts, and transactions.
+ */
+export async function withArchiveFallback<T>(
+	network: string,
+	fn: (client: PublicClient) => Promise<T>,
+): Promise<T> {
+	const client = getPublicClient(network);
+	try {
+		return await fn(client);
+	} catch (error) {
+		if (isPruningError(error)) {
+			const archiveClient = getArchiveClient(network);
+			if (archiveClient) {
+				return await fn(archiveClient);
+			}
+		}
+		throw error;
+	}
 }

@@ -1,25 +1,15 @@
 import type { Address, EstimateGasParameters, Hash, TransactionReceipt } from 'viem';
 import { DEFAULT_NETWORK } from '../config.js';
-import { getPublicClient, getArchiveClient } from './clients.js';
-import { isPruningError } from '../evm-archive-fallback.js';
+import { getPublicClient, withArchiveFallback } from './clients.js';
 
 /**
  * Get a transaction by hash for a specific network.
  * Automatically falls back to archive node if pruned.
  */
 export async function getTransaction(hash: Hash, network = DEFAULT_NETWORK) {
-	const client = getPublicClient(network);
-	try {
-		return await client.getTransaction({ hash });
-	} catch (error) {
-		if (isPruningError(error)) {
-			const archiveClient = getArchiveClient(network);
-			if (archiveClient) {
-				return await archiveClient.getTransaction({ hash });
-			}
-		}
-		throw error;
-	}
+	return withArchiveFallback(network, client =>
+		client.getTransaction({ hash })
+	);
 }
 
 /**
@@ -27,18 +17,9 @@ export async function getTransaction(hash: Hash, network = DEFAULT_NETWORK) {
  * Automatically falls back to archive node if pruned.
  */
 export async function getTransactionReceipt(hash: Hash, network = DEFAULT_NETWORK): Promise<TransactionReceipt> {
-	const client = getPublicClient(network);
-	try {
-		return await client.getTransactionReceipt({ hash });
-	} catch (error) {
-		if (isPruningError(error)) {
-			const archiveClient = getArchiveClient(network);
-			if (archiveClient) {
-				return await archiveClient.getTransactionReceipt({ hash });
-			}
-		}
-		throw error;
-	}
+	return withArchiveFallback(network, client =>
+		client.getTransactionReceipt({ hash })
+	);
 }
 
 /**

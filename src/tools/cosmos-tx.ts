@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { networks } from '../config.js';
 import { networkNameSchema, formatError } from './schemas.js';
+import { getArchiveApiEndpoint } from '../evm-archive-fallback.js';
 
 // Bech32 addresses: prefix + "1" + alphanumeric (no uppercase b/i/o/1)
 const BECH32_RE = /^[a-z][a-z0-9]*1[ac-hj-np-z02-9]{6,100}$/;
@@ -14,6 +15,7 @@ async function queryTxs(baseUrl: string, query: string, limit: number, orderBy: 
 
   const response = await fetch(`${baseUrl}/cosmos/tx/v1beta1/txs?${params.toString()}`, {
     headers: { 'Accept': 'application/json' },
+    signal: AbortSignal.timeout(15_000),
   });
 
   const data = await response.json();
@@ -47,8 +49,7 @@ export function registerCosmosTxTools(server: McpServer) {
     },
     async ({ networkName, query, pagination_limit, order_by }) => {
       try {
-        const network = networks[networkName];
-        const baseUrl = (network.archiveApiEndpoint || network.apiEndpoint).replace(/\/+$/, '');
+        const baseUrl = getArchiveApiEndpoint(networkName);
         const data = await queryTxs(baseUrl, query, pagination_limit || 10, order_by || 'ORDER_BY_DESC');
         return {
           content: [{type: "text", text: JSON.stringify(data)}],
@@ -72,12 +73,12 @@ export function registerCosmosTxTools(server: McpServer) {
     },
     async ({ networkName, txHash }) => {
       try {
-        const network = networks[networkName];
-        const baseUrl = (network.archiveApiEndpoint || network.apiEndpoint).replace(/\/+$/, '');
+        const baseUrl = getArchiveApiEndpoint(networkName);
         const hash = txHash.startsWith('0x') ? txHash.slice(2).toUpperCase() : txHash.toUpperCase();
 
         const response = await fetch(`${baseUrl}/cosmos/tx/v1beta1/txs/${hash}`, {
           headers: { 'Accept': 'application/json' },
+          signal: AbortSignal.timeout(15_000),
         });
         const data = await response.json();
         return {
@@ -110,8 +111,7 @@ export function registerCosmosTxTools(server: McpServer) {
           };
         }
 
-        const network = networks[networkName];
-        const baseUrl = (network.archiveApiEndpoint || network.apiEndpoint).replace(/\/+$/, '');
+        const baseUrl = getArchiveApiEndpoint(networkName);
         const limit = pagination_limit || 20;
 
         const queries = [
@@ -142,14 +142,14 @@ export function registerCosmosTxTools(server: McpServer) {
           network: networkName,
           total: sorted.length,
           transactions: sorted.slice(0, limit),
-          explorerUrl: `${network.explorerUrl}/address/${address}`,
+          explorerUrl: `${networks[networkName].explorerUrl}/address/${address}`,
           explorerName: 'MantraScan',
         };
 
         if (pruningNote) response.pruning_warning = pruningNote;
 
         if (sorted.length === 0) {
-          response.note = `No transactions found via LCD API. This may be because the node has pruned older blocks. Check MantraScan for full transaction history: ${network.explorerUrl}/address/${address}`;
+          response.note = `No transactions found via LCD API. This may be because the node has pruned older blocks. Check MantraScan for full transaction history: ${networks[networkName].explorerUrl}/address/${address}`;
         }
 
         return {

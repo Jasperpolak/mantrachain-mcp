@@ -5,7 +5,7 @@ import * as services from '../evm-services/index.js';
 import { MantraClient } from '../mantra-client.js';
 import { convertBigIntToString } from '../utils.js';
 import { networkNameSchema, formatError } from './schemas.js';
-import { isPreEvmBlock, EVM_ACTIVATION_BLOCK } from '../evm-archive-fallback.js';
+import { isPreEvmBlock, EVM_ACTIVATION_BLOCK, MAX_LOG_RANGE } from '../evm-archive-fallback.js';
 
 export function registerContractTools(server: McpServer, mantraClient: MantraClient) {
   // CosmWasm contract query
@@ -25,9 +25,10 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
         return {
           content: [{type: "text", text: JSON.stringify(result, null, 2)}],
         };
-      } catch (error: any) {
+      } catch (error) {
         return {
-          content: [{type: "text", text: `Error querying contract: ${error.message || JSON.stringify(error)}`}],
+          content: [{type: "text", text: `Error querying contract: ${formatError(error)}`}],
+          isError: true,
         };
       }
     }
@@ -148,8 +149,7 @@ export function registerContractTools(server: McpServer, mantraClient: MantraCli
           adjustedFrom = EVM_ACTIVATION_BLOCK;
         }
 
-        // Clamp range to 10,000 blocks (RPC limit for eth_getLogs)
-        const MAX_LOG_RANGE = 10_000;
+        // Clamp range to MAX_LOG_RANGE blocks (RPC limit for eth_getLogs)
         if (adjustedFrom !== undefined && adjustedTo !== undefined && (adjustedTo - adjustedFrom) > MAX_LOG_RANGE) {
           const originalTo = adjustedTo;
           adjustedTo = adjustedFrom + MAX_LOG_RANGE;

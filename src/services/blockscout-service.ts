@@ -1,5 +1,7 @@
 import { NetworkConfig } from '../config.js';
 
+const FETCH_TIMEOUT_MS = 15_000;
+
 export class BlockscoutService {
   private baseUrl: string;
 
@@ -13,6 +15,7 @@ export class BlockscoutService {
   private async fetchJson(path: string): Promise<any> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok) {
       throw new Error(`Blockscout API error: ${response.status} ${response.statusText}`);
@@ -20,27 +23,30 @@ export class BlockscoutService {
     return response.json();
   }
 
-  private buildPageParams(pageParams?: Record<string, string>): string {
-    if (!pageParams || Object.keys(pageParams).length === 0) return '';
-    const qs = new URLSearchParams(pageParams).toString();
-    return `&${qs}`;
+  private buildQuery(params: Record<string, string | undefined>, pageParams?: Record<string, string>): string {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined) qs.set(k, v);
+    }
+    if (pageParams) {
+      for (const [k, v] of Object.entries(pageParams)) {
+        qs.set(k, v);
+      }
+    }
+    const str = qs.toString();
+    return str ? `?${str}` : '';
   }
 
   async getAddressTransactions(address: string, pageParams?: Record<string, string>) {
-    const path = `/addresses/${address}/transactions?${this.buildPageParams(pageParams)}`;
-    return this.fetchJson(path);
+    return this.fetchJson(`/addresses/${address}/transactions${this.buildQuery({}, pageParams)}`);
   }
 
   async getAddressTokens(address: string, options?: { type?: string }, pageParams?: Record<string, string>) {
-    let path = `/addresses/${address}/tokens?`;
-    if (options?.type) path += `type=${encodeURIComponent(options.type)}&`;
-    path += this.buildPageParams(pageParams);
-    return this.fetchJson(path);
+    return this.fetchJson(`/addresses/${address}/tokens${this.buildQuery({ type: options?.type }, pageParams)}`);
   }
 
   async getAddressInternalTransactions(address: string, pageParams?: Record<string, string>) {
-    const path = `/addresses/${address}/internal-transactions?${this.buildPageParams(pageParams)}`;
-    return this.fetchJson(path);
+    return this.fetchJson(`/addresses/${address}/internal-transactions${this.buildQuery({}, pageParams)}`);
   }
 
   async getNFTInstance(contractAddress: string, tokenId: string) {
@@ -52,16 +58,11 @@ export class BlockscoutService {
   }
 
   async getAddressTokenTransfers(address: string, options?: { token?: string; type?: string }, pageParams?: Record<string, string>) {
-    let path = `/addresses/${address}/token-transfers?`;
-    if (options?.token) path += `token=${options.token}&`;
-    if (options?.type) path += `type=${options.type}&`;
-    path += this.buildPageParams(pageParams);
-    return this.fetchJson(path);
+    return this.fetchJson(`/addresses/${address}/token-transfers${this.buildQuery({ token: options?.token, type: options?.type }, pageParams)}`);
   }
 
   async getTokenHolders(contractAddress: string, pageParams?: Record<string, string>) {
-    const path = `/tokens/${contractAddress}/holders?${this.buildPageParams(pageParams)}`;
-    return this.fetchJson(path);
+    return this.fetchJson(`/tokens/${contractAddress}/holders${this.buildQuery({}, pageParams)}`);
   }
 
   async getAddressInfo(address: string) {

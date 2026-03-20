@@ -16,11 +16,18 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
       height: z.number().optional().describe("Optional block height to query, defaults to latest block"),
     },
     async ({ networkName, height }) => {
-      await mantraClient.initialize(networkName);
-      const currentBlockInfo = await mantraClient.getBlockInfo(height);
-      return {
-        content: [{type: "text", text: JSON.stringify(currentBlockInfo)}],
-      };
+      try {
+        await mantraClient.initialize(networkName);
+        const currentBlockInfo = await mantraClient.getBlockInfo(height);
+        return {
+          content: [{type: "text", text: JSON.stringify(currentBlockInfo)}],
+        };
+      } catch (error) {
+        return {
+          content: [{type: 'text', text: `Error fetching block info: ${formatError(error)}`}],
+          isError: true,
+        };
+      }
     }
   );
 
@@ -124,6 +131,7 @@ export function registerNetworkTools(server: McpServer, mantraClient: MantraClie
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          signal: AbortSignal.timeout(15_000),
         });
 
         const data = await response.json();

@@ -4,7 +4,8 @@ import type { Address, Hash } from 'viem';
 import * as services from '../evm-services/index.js';
 import { networkNameSchema, formatError } from './schemas.js';
 import { isPruningError, EVM_ACTIVATION_BLOCK, getArchiveApiEndpoint } from '../evm-archive-fallback.js';
-import { networks } from '../config.js';
+
+const FETCH_TIMEOUT_MS = 15_000;
 
 /**
  * Try to find a transaction via Cosmos LCD as a fallback.
@@ -13,10 +14,10 @@ import { networks } from '../config.js';
 async function tryCosmosLookup(txHash: string, networkName: string): Promise<any | null> {
   try {
     const baseUrl = getArchiveApiEndpoint(networkName);
-    // Cosmos indexes EVM tx hashes in uppercase without 0x prefix
     const hash = txHash.startsWith('0x') ? txHash.slice(2).toUpperCase() : txHash.toUpperCase();
     const response = await fetch(`${baseUrl}/cosmos/tx/v1beta1/txs/${hash}`, {
       headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     const data = await response.json();
     if (data.tx_response) return data;
